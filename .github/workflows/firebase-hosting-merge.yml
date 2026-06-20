@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-      - run: npm ci && npm run build
+      - run: npm install && npm run build
         env:
           VITE_API_URL: https://abros-healthcare.onrender.com
       - uses: FirebaseExtended/action-hosting-deploy@v0
