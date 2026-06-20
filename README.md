@@ -30,4 +30,4 @@ Or push to `main` — GitHub Actions deploys to Firebase Hosting.
 
 ## Backend
 
-API repo: [abros_healthcare_backend](https://github.com/abhinav21769/abros_healthcare_backend)
+API repo: [abros-web-backend](https://github.com/abhinav21769/abros-web-backend)
