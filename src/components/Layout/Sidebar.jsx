@@ -17,9 +17,14 @@ const navItems = [
 export default function Sidebar() {
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 overflow-hidden">
+        <div className="absolute -top-16 left-1/2 h-32 w-60 -translate-x-1/2 rounded-full bg-indigo-500/25 blur-3xl" />
+        <div className="absolute top-0 left-0 h-px w-full bg-linear-to-r from-transparent via-indigo-400/40 to-transparent" />
+      </div>
+
+      <div className="sidebar-brand relative">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">
+          <div className="sidebar-logo-icon shadow-[0_0_24px_rgba(255,255,255,0.15)]">
             <Cross size={22} strokeWidth={2.5} />
           </div>
           <div className="sidebar-logo-text">
@@ -29,7 +34,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav relative">
         {navItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
@@ -45,7 +50,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="sidebar-footer">
+      <div className="sidebar-footer relative">
         Medicine Inventory System v1.0
       </div>
     </aside>

@@ -1,6 +1,8 @@
+import { FadeIn } from "./fade-in";
+
 export default function PageHeader({ title, subtitle, action }) {
   return (
-    <div className="page-header">
+    <FadeIn className="page-header">
       <div className="page-header-row">
         <div>
           <h2>{title}</h2>
@@ -8,6 +10,6 @@ export default function PageHeader({ title, subtitle, action }) {
         </div>
         {action}
       </div>
-    </div>
+    </FadeIn>
   );
 }
