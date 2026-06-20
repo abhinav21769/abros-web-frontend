@@ -1,11 +1,54 @@
-import { Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { Cross, Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { GridBackground } from "../ui/grid-background";
 
 export default function AppLayout() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
   return (
     <div className="app-layout">
-      <Sidebar />
+      <header className="mobile-header">
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu size={22} />
+        </button>
+        <div className="mobile-header-brand">
+          <div className="mobile-header-logo">
+            <Cross size={18} strokeWidth={2.5} />
+          </div>
+          <span>Abros Healthcare</span>
+        </div>
+      </header>
+
+      {menuOpen && (
+        <button
+          type="button"
+          className="sidebar-overlay"
+          onClick={() => setMenuOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
+
+      <Sidebar isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+
       <main className="main-content">
         <GridBackground className="min-h-full">
           <Outlet />

@@ -1,11 +1,5 @@
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  FileText,
-  Package,
-  Users,
-  Cross,
-} from "lucide-react";
+import { LayoutDashboard, FileText, Package, Users, Cross, X } from "lucide-react";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -14,9 +8,9 @@ const navItems = [
   { to: "/customers", label: "Customers", icon: Users },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose }) {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${isOpen ? " sidebar-open" : ""}`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-48 overflow-hidden">
         <div className="absolute -top-16 left-1/2 h-32 w-60 -translate-x-1/2 rounded-full bg-indigo-500/25 blur-3xl" />
         <div className="absolute top-0 left-0 h-px w-full bg-linear-to-r from-transparent via-indigo-400/40 to-transparent" />
@@ -32,6 +26,14 @@ export default function Sidebar() {
             <span>Healthcare</span>
           </div>
         </div>
+        <button
+          type="button"
+          className="sidebar-close-btn"
+          onClick={onClose}
+          aria-label="Close menu"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       <nav className="sidebar-nav relative">
@@ -40,9 +42,8 @@ export default function Sidebar() {
             key={to}
             to={to}
             end={end}
-            className={({ isActive }) =>
-              `nav-link${isActive ? " active" : ""}`
-            }
+            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
+            onClick={onClose}
           >
             <Icon size={18} strokeWidth={2} />
             <span>{label}</span>
@@ -50,9 +51,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="sidebar-footer relative">
-        Medicine Inventory System v1.0
-      </div>
+      <div className="sidebar-footer relative">v1.0.1</div>
     </aside>
   );
 }

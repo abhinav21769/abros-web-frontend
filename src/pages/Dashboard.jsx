@@ -7,6 +7,7 @@ import { SpotlightCard } from "../components/ui/spotlight-card";
 import { FadeIn } from "../components/ui/fade-in";
 import { ShimmerButton } from "../components/ui/shimmer-button";
 import { medicinesApi, customersApi, invoicesApi } from "../api/client";
+import { useToast } from "../context/ToastContext";
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", {
@@ -40,11 +41,12 @@ function StatCard({ label, value, sub, valueStyle, icon }) {
 }
 
 export default function Dashboard() {
+  const toast = useToast();
   const [inventory, setInventory] = useState(null);
   const [customers, setCustomers] = useState(null);
   const [invoices, setInvoices] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -56,10 +58,14 @@ export default function Dashboard() {
         setInventory(inv);
         setCustomers(cust);
         setInvoices(invc);
+        setLoadFailed(false);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setLoadFailed(true);
+        toast.error(err.message);
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [toast]);
 
   if (loading) {
     return (
@@ -77,11 +83,17 @@ export default function Dashboard() {
     );
   }
 
-  if (error) return <div className="alert alert-error">{error}</div>;
+  if (loadFailed || !inventory || !customers || !invoices) {
+    return (
+      <div className="empty-state" style={{ padding: "80px 24px" }}>
+        Unable to load dashboard data. Please try again.
+      </div>
+    );
+  }
 
-  const invStats = inventory.stats;
-  const custStats = customers.stats;
-  const invcStats = invoices.stats;
+  const invStats = inventory.data.stats;
+  const custStats = customers.data.stats;
+  const invcStats = invoices.data.stats;
 
   const primaryStats = [
     {
@@ -177,7 +189,7 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="card-body">
-              {inventory.expiringMedicines.list.length === 0 ? (
+              {inventory.data.expiringMedicines.list.length === 0 ? (
                 <div className="empty-state">No medicines expiring soon</div>
               ) : (
                 <div className="table-wrap">
@@ -190,7 +202,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {inventory.expiringMedicines.list.map((med, i) => (
+                      {inventory.data.expiringMedicines.list.map((med, i) => (
                         <tr key={i}>
                           <td>{med.name}</td>
                           <td>{formatDate(med.expiryDate)}</td>
@@ -214,7 +226,7 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="card-body">
-              {inventory.expiredMedicines.list.length === 0 ? (
+              {inventory.data.expiredMedicines.list.length === 0 ? (
                 <div className="empty-state">No expired medicines</div>
               ) : (
                 <div className="table-wrap">
@@ -227,7 +239,7 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {inventory.expiredMedicines.list.map((med, i) => (
+                      {inventory.data.expiredMedicines.list.map((med, i) => (
                         <tr key={i}>
                           <td>{med.name}</td>
                           <td>{formatDate(med.expiryDate)}</td>

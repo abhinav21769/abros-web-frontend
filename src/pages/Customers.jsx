@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Modal from "../components/ui/Modal";
 import { customersApi } from "../api/client";
+import { useToast } from "../context/ToastContext";
 
 const emptyForm = {
   name: "",
@@ -13,17 +14,16 @@ const emptyForm = {
 };
 
 export default function Customers() {
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
 
   const fetchItems = useCallback(() => {
     setLoading(true);
@@ -33,13 +33,12 @@ export default function Customers() {
     customersApi
       .list(params)
       .then((res) => {
-        setItems(res.data);
-        setPagination(res.pagination);
-        setError("");
+        setItems(res.data.items);
+        setPagination(res.data.pagination);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -48,7 +47,6 @@ export default function Customers() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
-    setFormError("");
     setModalOpen(true);
   };
 
@@ -61,7 +59,6 @@ export default function Customers() {
       gstin: item.gstin || "",
       dlNo: item.dlNo || "",
     });
-    setFormError("");
     setModalOpen(true);
   };
 
@@ -72,7 +69,6 @@ export default function Customers() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setFormError("");
 
     const payload = {
       name: form.name,
@@ -83,15 +79,14 @@ export default function Customers() {
     };
 
     try {
-      if (editing) {
-        await customersApi.update(editing._id, payload);
-      } else {
-        await customersApi.create(payload);
-      }
+      const res = editing
+        ? await customersApi.update(editing._id, payload)
+        : await customersApi.create(payload);
+      toast.success(res.message);
       setModalOpen(false);
       fetchItems();
     } catch (err) {
-      setFormError(err.message);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -100,10 +95,11 @@ export default function Customers() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this customer?")) return;
     try {
-      await customersApi.remove(id);
+      const res = await customersApi.remove(id);
+      toast.success(res.message);
       fetchItems();
     } catch (err) {
-      setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -118,8 +114,6 @@ export default function Customers() {
           </button>
         }
       />
-
-      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
         <div className="toolbar">
@@ -227,7 +221,6 @@ export default function Customers() {
             </>
           }
         >
-          {formError && <div className="alert alert-error">{formError}</div>}
           <form onSubmit={handleSubmit} className="form-grid">
             <div className="input-group full-width">
               <label>Store / Customer Name *</label>

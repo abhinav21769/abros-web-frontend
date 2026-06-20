@@ -3,17 +3,27 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Modal from "../components/ui/Modal";
 import { medicinesApi } from "../api/client";
+import { useToast } from "../context/ToastContext";
+
+const PTR_DISCOUNT = 0.238;
 
 const emptyForm = {
   name: "",
   expiryDate: "",
   packagingType: "",
   mrp: "",
+  rate: "",
   quantity: "",
   batchNumber: "",
   manufacturer: "",
   description: "",
 };
+
+function calcPtr(mrp) {
+  const value = Number(mrp);
+  if (!value || value < 0) return 0;
+  return Math.round(value * (1 - PTR_DISCOUNT) * 100) / 100;
+}
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -36,22 +46,22 @@ function getExpiryBadge(expiryDate) {
   const days = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
 
   if (days < 0) return <span className="badge badge-danger">Expired</span>;
-  if (days <= 30) return <span className="badge badge-warning">{days}d left</span>;
+  if (days <= 30)
+    return <span className="badge badge-warning">{days}d left</span>;
   return <span className="badge badge-success">Active</span>;
 }
 
 export default function Inventory() {
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
 
   const fetchItems = useCallback(() => {
     setLoading(true);
@@ -61,13 +71,12 @@ export default function Inventory() {
     medicinesApi
       .list(params)
       .then((res) => {
-        setItems(res.data);
-        setPagination(res.pagination);
-        setError("");
+        setItems(res.data.items);
+        setPagination(res.data.pagination);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -76,7 +85,6 @@ export default function Inventory() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
-    setFormError("");
     setModalOpen(true);
   };
 
@@ -87,12 +95,12 @@ export default function Inventory() {
       expiryDate: item.expiryDate.split("T")[0],
       packagingType: item.packagingType,
       mrp: String(item.mrp),
+      rate: String(item.rate ?? ""),
       quantity: String(item.quantity),
       batchNumber: item.batchNumber || "",
       manufacturer: item.manufacturer || "",
       description: item.description || "",
     });
-    setFormError("");
     setModalOpen(true);
   };
 
@@ -103,13 +111,14 @@ export default function Inventory() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setFormError("");
 
     const payload = {
       name: form.name,
       expiryDate: new Date(form.expiryDate).toISOString(),
       packagingType: form.packagingType,
       mrp: Number(form.mrp),
+      rate: Number(form.rate),
+      ptr: calcPtr(form.mrp),
       quantity: Number(form.quantity) || 0,
       batchNumber: form.batchNumber || undefined,
       manufacturer: form.manufacturer || undefined,
@@ -117,15 +126,14 @@ export default function Inventory() {
     };
 
     try {
-      if (editing) {
-        await medicinesApi.update(editing._id, payload);
-      } else {
-        await medicinesApi.create(payload);
-      }
+      const res = editing
+        ? await medicinesApi.update(editing._id, payload)
+        : await medicinesApi.create(payload);
+      toast.success(res.message);
       setModalOpen(false);
       fetchItems();
     } catch (err) {
-      setFormError(err.message);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -134,10 +142,11 @@ export default function Inventory() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this medicine from inventory?")) return;
     try {
-      await medicinesApi.remove(id);
+      const res = await medicinesApi.remove(id);
+      toast.success(res.message);
       fetchItems();
     } catch (err) {
-      setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -152,8 +161,6 @@ export default function Inventory() {
           </button>
         }
       />
-
-      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
         <div className="toolbar">
@@ -184,6 +191,8 @@ export default function Inventory() {
                     <th>Expiry</th>
                     <th>Qty</th>
                     <th>MRP</th>
+                    <th>Rate</th>
+                    <th>PTR</th>
                     <th>Status</th>
                     <th></th>
                   </tr>
@@ -194,7 +203,12 @@ export default function Inventory() {
                       <td>
                         <strong>{item.name}</strong>
                         {item.manufacturer && (
-                          <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "var(--text-muted)",
+                            }}
+                          >
                             {item.manufacturer}
                           </div>
                         )}
@@ -204,6 +218,8 @@ export default function Inventory() {
                       <td>{formatDate(item.expiryDate)}</td>
                       <td>{item.quantity}</td>
                       <td>{formatCurrency(item.mrp)}</td>
+                      <td>{formatCurrency(item.rate)}</td>
+                      <td>{formatCurrency(item.ptr)}</td>
                       <td>{getExpiryBadge(item.expiryDate)}</td>
                       <td>
                         <div className="actions-cell">
@@ -279,11 +295,15 @@ export default function Inventory() {
             </>
           }
         >
-          {formError && <div className="alert alert-error">{formError}</div>}
           <form onSubmit={handleSubmit} className="form-grid">
             <div className="input-group full-width">
               <label>Medicine Name *</label>
-              <input name="name" value={form.name} onChange={handleChange} required />
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+              />
             </div>
             <div className="input-group">
               <label>Packaging Type *</label>
@@ -297,7 +317,11 @@ export default function Inventory() {
             </div>
             <div className="input-group">
               <label>Batch Number</label>
-              <input name="batchNumber" value={form.batchNumber} onChange={handleChange} />
+              <input
+                name="batchNumber"
+                value={form.batchNumber}
+                onChange={handleChange}
+              />
             </div>
             <div className="input-group">
               <label>Expiry Date *</label>
@@ -322,6 +346,33 @@ export default function Inventory() {
               />
             </div>
             <div className="input-group">
+              <label>Rate (₹) *</label>
+              <input
+                type="number"
+                name="rate"
+                value={form.rate}
+                onChange={handleChange}
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+            <div className="input-group">
+              <label>PTR (₹)</label>
+              <input
+                type="text"
+                value={form.mrp ? formatCurrency(calcPtr(form.mrp)) : "—"}
+                readOnly
+                style={{
+                  background: "var(--bg-muted, #f4f4f5)",
+                  cursor: "not-allowed",
+                }}
+              />
+              <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                Auto-calculated: MRP − 23.8%
+              </span>
+            </div>
+            <div className="input-group">
               <label>Quantity</label>
               <input
                 type="number"
@@ -333,11 +384,19 @@ export default function Inventory() {
             </div>
             <div className="input-group">
               <label>Manufacturer</label>
-              <input name="manufacturer" value={form.manufacturer} onChange={handleChange} />
+              <input
+                name="manufacturer"
+                value={form.manufacturer}
+                onChange={handleChange}
+              />
             </div>
             <div className="input-group full-width">
               <label>Description</label>
-              <textarea name="description" value={form.description} onChange={handleChange} />
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+              />
             </div>
           </form>
         </Modal>

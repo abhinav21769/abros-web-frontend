@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, X } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Modal from "../components/ui/Modal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
+import { useToast } from "../context/ToastContext";
 
 const emptyItem = { medicine: "", medicineName: "", quantity: "1", rate: "" };
 
@@ -40,6 +41,7 @@ function statusBadge(status) {
 }
 
 export default function Invoices() {
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -47,12 +49,10 @@ export default function Invoices() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
 
   const fetchItems = useCallback(() => {
     setLoading(true);
@@ -62,13 +62,12 @@ export default function Invoices() {
     invoicesApi
       .list(params)
       .then((res) => {
-        setItems(res.data);
-        setPagination(res.pagination);
-        setError("");
+        setItems(res.data.items);
+        setPagination(res.data.pagination);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -80,8 +79,8 @@ export default function Invoices() {
       medicinesApi.list({ limit: 100, expired: "false" }),
       invoicesApi.generateNumber(),
     ]);
-    setCustomers(custRes.data);
-    setMedicines(medRes.data);
+    setCustomers(custRes.data.items);
+    setMedicines(medRes.data.items);
     return numRes.data.invoiceNumber;
   };
 
@@ -90,10 +89,9 @@ export default function Invoices() {
       const invoiceNumber = await loadFormData();
       setEditing(null);
       setForm({ ...emptyForm, invoiceNumber, items: [{ ...emptyItem }] });
-      setFormError("");
       setModalOpen(true);
     } catch (err) {
-      setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -114,10 +112,9 @@ export default function Invoices() {
           rate: String(i.rate),
         })),
       });
-      setFormError("");
       setModalOpen(true);
     } catch (err) {
-      setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -134,7 +131,7 @@ export default function Invoices() {
         const med = medicines.find((m) => m._id === value);
         if (med) {
           items[index].medicineName = med.name;
-          items[index].rate = String(med.mrp);
+          items[index].rate = String(med.rate ?? med.mrp);
         }
       }
 
@@ -165,7 +162,6 @@ export default function Invoices() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setFormError("");
 
     const payload = {
       invoiceNumber: form.invoiceNumber,
@@ -182,15 +178,14 @@ export default function Invoices() {
     };
 
     try {
-      if (editing) {
-        await invoicesApi.update(editing._id, payload);
-      } else {
-        await invoicesApi.create(payload);
-      }
+      const res = editing
+        ? await invoicesApi.update(editing._id, payload)
+        : await invoicesApi.create(payload);
+      toast.success(res.message);
       setModalOpen(false);
       fetchItems();
     } catch (err) {
-      setFormError(err.message);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -199,10 +194,11 @@ export default function Invoices() {
   const handleDelete = async (id) => {
     if (!confirm("Delete this invoice?")) return;
     try {
-      await invoicesApi.remove(id);
+      const res = await invoicesApi.remove(id);
+      toast.success(res.message);
       fetchItems();
     } catch (err) {
-      setError(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -217,8 +213,6 @@ export default function Invoices() {
           </button>
         }
       />
-
-      {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
         <div className="toolbar">
@@ -329,7 +323,6 @@ export default function Invoices() {
             </>
           }
         >
-          {formError && <div className="alert alert-error">{formError}</div>}
           <form onSubmit={handleSubmit}>
             <div className="form-grid" style={{ marginBottom: 20 }}>
               <div className="input-group">
@@ -400,7 +393,7 @@ export default function Invoices() {
                       <option value="">Custom / Manual</option>
                       {medicines.map((m) => (
                         <option key={m._id} value={m._id}>
-                          {m.name} (₹{m.mrp})
+                          {m.name} (₹{m.rate ?? m.mrp})
                         </option>
                       ))}
                     </select>
