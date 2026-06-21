@@ -9,10 +9,9 @@ const SELLER = {
   name: "ABROS HEALTHCARE",
   address: "Shop-2, Shivpuri Colony, Sultanpur, Ambala City, Haryana",
   pincode: "134003",
+  phone: "8295566445",
   gstin: "06AFUPJ3372H1Z5",
-  dlNo: "DL NO.",
-  dlValidUpto: "UPTO DT",
-  licNo: "LIC NO",
+  dlNo: "D.L NO: - WLF20B2026HR000446, WLF21B2026HR000442",
   forLabel: "FOR  ABROS HEALTHCARE",
 };
 
@@ -23,8 +22,10 @@ function getPaymentTypeLabel(invoice) {
 const GST_SLABS = ["5.00", "12.00", "18.00", "28.00"];
 
 const TERMS = [
-  "Goods once sold will not be taken back or exchanged.",
-  "Bills not paid due date will attract 24% interest.",
+  "1. All disputes Subject to Ambala Jurisdiction only.",
+  "2. Goods once sold will not taken back or Exchanged.",
+  "3. Interest @ 18% p.a. will be charged, if bill is not paid within 15 days.",
+  "4. E & O. E.",
 ];
 
 const ITEM_HEADERS = [
@@ -225,22 +226,22 @@ function buildBillHeaderRows(invoice) {
       "",
     ],
     [
-      SELLER.licNo,
+      `Phone No: ${SELLER.phone}`,
       "",
       "",
       "",
       "",
       "",
       "",
-      SELLER.dlNo,
+      "DL NO",
       "",
       "",
       "",
-      customer.dlNo || SELLER.dlValidUpto,
+      customer.dlNo || "",
       "",
     ],
     [
-      SELLER.licNo,
+      SELLER.dlNo,
       "",
       "",
       "",
@@ -426,6 +427,9 @@ export async function downloadInvoicePdf(invoice) {
 
   y += 5;
   doc.text(SELLER.pincode, margin, y);
+
+  y += 5;
+  doc.text(`Phone No: ${SELLER.phone}`, margin, y);
   doc.text(
     customer.contact ? `Phone No: ${customer.contact}` : "",
     pageWidth - margin,
@@ -443,7 +447,7 @@ export async function downloadInvoicePdf(invoice) {
   );
 
   y += 5;
-  doc.text(SELLER.licNo, margin, y);
+  doc.text(SELLER.dlNo, margin, y);
   doc.text(
     customer.dlNo ? `DL NO: ${customer.dlNo}` : "DL NO:",
     pageWidth - margin,

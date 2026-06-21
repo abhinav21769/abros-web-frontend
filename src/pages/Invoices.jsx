@@ -295,7 +295,7 @@ export default function Invoices() {
                   <tr>
                     <th>Invoice #</th>
                     <th>Customer</th>
-                    <th>Date</th>
+                    <th>Invoice Date</th>
                     <th>Items</th>
                     <th>Total</th>
                     <th>Payment</th>
@@ -432,7 +432,7 @@ export default function Invoices() {
                 />
               </div>
               <div className="input-group">
-                <label>Date *</label>
+                <label>Invoice Date *</label>
                 <input
                   type="date"
                   name="invoiceDate"
