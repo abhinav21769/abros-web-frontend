@@ -33,6 +33,11 @@ function getPaymentTypeLabel(invoice) {
   return invoice?.paymentType === "cash" ? "CASH" : "CREDIT";
 }
 
+const TERMS = [
+  "1. All disputes Subject to Ambala Jurisdiction only.",
+  "2. Goods once sold will not taken back or Exchanged.",
+];
+
 function formatAmount(value) {
   return Number(value || 0).toFixed(2);
 }
@@ -470,9 +475,11 @@ function drawInvoiceCopy(doc, invoice, options) {
   let blockY = doc.lastAutoTable.finalY;
   const qrSize = 14;
   const bankTextHeight = 12;
-  const bankSectionHeight = qrDataUrl
-    ? Math.max(bankTextHeight, qrSize + 3)
-    : bankTextHeight;
+  const qrBlockHeight = qrSize + 3;
+  const bankSectionHeight = Math.max(
+    bankTextHeight,
+    qrDataUrl ? qrBlockHeight : 0,
+  );
   const wordsHeight = 7;
   const bankTopGap = 2;
   const signatureTop = maxEndY - 9;
@@ -515,6 +522,17 @@ function drawInvoiceCopy(doc, invoice, options) {
 
     blockY += bankSectionHeight;
   }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.text("Terms & Conditions", margin + 2, signatureTop + 2);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  TERMS.forEach((term, index) => {
+    doc.text(term, margin + 2, signatureTop + 5 + index * 3.2, {
+      maxWidth: contentWidth * 0.52,
+    });
+  });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
