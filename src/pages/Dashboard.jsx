@@ -6,7 +6,7 @@ import { MovingBorder } from "../components/ui/moving-border";
 import { SpotlightCard } from "../components/ui/spotlight-card";
 import { FadeIn } from "../components/ui/fade-in";
 import { ShimmerButton } from "../components/ui/shimmer-button";
-import { medicinesApi, customersApi, invoicesApi } from "../api/client";
+import { dashboardApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 
 function formatCurrency(value) {
@@ -49,15 +49,12 @@ export default function Dashboard() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      medicinesApi.stats(30),
-      customersApi.stats(),
-      invoicesApi.stats(),
-    ])
-      .then(([inv, cust, invc]) => {
-        setInventory(inv);
-        setCustomers(cust);
-        setInvoices(invc);
+    dashboardApi
+      .stats(30)
+      .then((res) => {
+        setInventory({ data: res.data.inventory });
+        setCustomers({ data: res.data.customers });
+        setInvoices({ data: res.data.invoices });
         setLoadFailed(false);
       })
       .catch((err) => {

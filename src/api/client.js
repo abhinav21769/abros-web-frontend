@@ -97,3 +97,7 @@ export const invoicesApi = {
   stats: () => request("/api/invoices/stats"),
   generateNumber: () => request("/api/invoices/generate-number"),
 };
+
+export const dashboardApi = {
+  stats: (days = 30) => request(`/api/dashboard/stats?days=${days}`),
+};
