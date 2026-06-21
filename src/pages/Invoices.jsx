@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -9,7 +9,9 @@ import {
   QrCode,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
+import FieldError from "../components/ui/FieldError";
 import PaymentQrModal from "../components/PaymentQrModal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
@@ -25,10 +27,19 @@ import {
 } from "../utils/dateUtils";
 import { isPaymentConfigured } from "../config/payment";
 
+import { calculateInvoiceTax, GST_RATE_OPTIONS } from "../utils/invoiceTax";
+import {
+  clearFieldError,
+  fieldClass,
+  hasErrors,
+  validateInvoiceForm,
+} from "../utils/formValidation";
+
 const emptyItem = {
   medicine: "",
   medicineName: "",
   hsn: "",
+  gstRate: "5",
   quantity: "1",
   free: "0",
   rate: "",
@@ -40,7 +51,6 @@ const emptyForm = {
   status: "pending",
   paymentType: "credit",
   invoiceDate: getTodayDateInputValue(),
-  notes: "",
   items: [{ ...emptyItem }],
 };
 
@@ -78,6 +88,7 @@ export default function Invoices() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState(null);
   const paymentEnabled = isPaymentConfigured();
@@ -109,14 +120,22 @@ export default function Invoices() {
     ]);
     setCustomers(custRes.data.items);
     setMedicines(medRes.data.items);
-    return numRes.data.invoiceNumber;
+    return {
+      invoiceNumber: numRes.data.invoiceNumber,
+      medicines: medRes.data.items,
+    };
   };
 
   const openCreate = async () => {
     try {
-      const invoiceNumber = await loadFormData();
+      const { invoiceNumber, medicines: activeMedicines } = await loadFormData();
+      if (activeMedicines.length === 0) {
+        toast.error("Add medicines to inventory before creating an invoice.");
+        return;
+      }
       setEditing(null);
       setForm({ ...emptyForm, invoiceNumber, items: [{ ...emptyItem }] });
+      setFormErrors({});
       setModalOpen(true);
     } catch (err) {
       toast.error(err.message);
@@ -133,16 +152,17 @@ export default function Invoices() {
         status: item.status,
         paymentType: item.paymentType || "credit",
         invoiceDate: toDateInputValue(item.invoiceDate),
-        notes: item.notes || "",
         items: item.items.map((i) => ({
           medicine: i.medicine?._id || i.medicine || "",
           medicineName: i.medicineName,
           hsn: i.hsn || i.medicine?.hsn || "",
+          gstRate: String(i.gstRate ?? i.medicine?.gstRate ?? 5),
           quantity: String(i.quantity),
           free: String(i.free ?? 0),
           rate: String(i.rate),
         })),
       });
+      setFormErrors({});
       setModalOpen(true);
     } catch (err) {
       toast.error(err.message);
@@ -150,25 +170,39 @@ export default function Invoices() {
   };
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => clearFieldError(prev, name));
   };
+
+  const itemFieldError = (index, field) =>
+    formErrors[`items.${index}.${field}`];
 
   const handleItemChange = (index, field, value) => {
     setForm((prev) => {
       const items = [...prev.items];
       items[index] = { ...items[index], [field]: value };
 
-      if (field === "medicine" && value) {
+      if (field === "medicine") {
         const med = medicines.find((m) => m._id === value);
         if (med) {
           items[index].medicineName = med.name;
           items[index].rate = String(med.rate ?? med.mrp);
           items[index].hsn = med.hsn || "";
+          items[index].gstRate = String(med.gstRate ?? 5);
+        } else {
+          items[index].medicineName = "";
+          items[index].rate = "";
+          items[index].hsn = "";
+          items[index].gstRate = "5";
         }
       }
 
       return { ...prev, items };
     });
+    setFormErrors((prev) =>
+      clearFieldError(prev, `items.${index}.${field}`),
+    );
   };
 
   const addItem = () => {
@@ -185,15 +219,27 @@ export default function Invoices() {
     }));
   };
 
-  const calcTotal = () =>
-    form.items.reduce(
-      (sum, item) =>
-        sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0),
-      0,
-    );
+  const taxSummary = useMemo(
+    () =>
+      calculateInvoiceTax(
+        form.items.map((item) => ({
+          quantity: Number(item.quantity) || 0,
+          rate: Number(item.rate) || 0,
+          gstRate: Number(item.gstRate) || 5,
+        })),
+      ),
+    [form.items],
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateInvoiceForm(form);
+    setFormErrors(errors);
+    if (hasErrors(errors)) {
+      toast.error("Please fix the highlighted fields.");
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -202,11 +248,11 @@ export default function Invoices() {
       status: form.status,
       paymentType: form.paymentType,
       invoiceDate: toInvoiceDatePayload(form.invoiceDate),
-      notes: form.notes || undefined,
       items: form.items.map((item) => ({
-        medicine: item.medicine || undefined,
+        medicine: item.medicine,
         medicineName: item.medicineName,
         hsn: item.hsn || undefined,
+        gstRate: Number(item.gstRate) || 5,
         quantity: Number(item.quantity),
         free: Number(item.free) || 0,
         rate: Number(item.rate),
@@ -365,30 +411,12 @@ export default function Invoices() {
               </table>
             </div>
 
-            {pagination && pagination.totalPages > 1 && (
-              <div className="pagination">
-                <span>
-                  Page {pagination.currentPage} of {pagination.totalPages} ·{" "}
-                  {pagination.totalItems} invoices
-                </span>
-                <div className="pagination-btns">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={page >= pagination.totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              pagination={pagination}
+              page={page}
+              onPageChange={setPage}
+              itemLabel="invoices"
+            />
           </>
         )}
       </div>
@@ -420,16 +448,21 @@ export default function Invoices() {
             </>
           }
         >
-          <form onSubmit={handleSubmit}>
-            <div className="form-grid" style={{ marginBottom: 20 }}>
+          <form onSubmit={handleSubmit} className="invoice-form">
+            {formErrors.items && typeof formErrors.items === "string" && (
+              <div className="form-error-banner">{formErrors.items}</div>
+            )}
+
+            <div className="invoice-form-grid">
               <div className="input-group">
                 <label>Invoice Number *</label>
                 <input
                   name="invoiceNumber"
                   value={form.invoiceNumber}
                   onChange={handleChange}
-                  required
+                  className={fieldClass(formErrors, "invoiceNumber")}
                 />
+                <FieldError message={formErrors.invoiceNumber} />
               </div>
               <div className="input-group">
                 <label>Invoice Date *</label>
@@ -438,36 +471,9 @@ export default function Invoices() {
                   name="invoiceDate"
                   value={form.invoiceDate}
                   onChange={handleChange}
-                  required
+                  className={fieldClass(formErrors, "invoiceDate")}
                 />
-              </div>
-              <div className="input-group">
-                <label>Customer *</label>
-                <select
-                  name="customer"
-                  value={form.customer}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">Select customer</option>
-                  {customers.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="input-group">
-                <label>Payment Type *</label>
-                <select
-                  name="paymentType"
-                  value={form.paymentType}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="credit">Credit</option>
-                  <option value="cash">Cash</option>
-                </select>
+                <FieldError message={formErrors.invoiceDate} />
               </div>
               <div className="input-group">
                 <label>Status</label>
@@ -481,125 +487,185 @@ export default function Invoices() {
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
-              <div className="input-group full-width">
-                <label>Notes</label>
-                <textarea
-                  name="notes"
-                  value={form.notes}
+              <div className="input-group">
+                <label>Customer *</label>
+                <select
+                  name="customer"
+                  value={form.customer}
                   onChange={handleChange}
-                />
+                  className={fieldClass(formErrors, "customer")}
+                >
+                  <option value="">Select customer</option>
+                  {customers.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <FieldError message={formErrors.customer} />
+              </div>
+              <div className="input-group">
+                <label>Payment Type *</label>
+                <select
+                  name="paymentType"
+                  value={form.paymentType}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="credit">Credit</option>
+                  <option value="cash">Cash</option>
+                </select>
               </div>
             </div>
 
-            <div
-              style={{
-                marginBottom: 12,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
+            <div className="invoice-items-header">
               <strong>Line Items</strong>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={addItem}
+                disabled={medicines.length === 0}
               >
                 <Plus size={14} /> Add Item
               </button>
             </div>
 
             <div className="invoice-items">
-              {form.items.map((item, index) => (
-                <div key={index} className="invoice-item-row">
-                  <div className="input-group">
-                    <label>Medicine</label>
-                    <select
-                      value={item.medicine}
-                      onChange={(e) =>
-                        handleItemChange(index, "medicine", e.target.value)
-                      }
-                    >
-                      <option value="">Custom / Manual</option>
-                      {medicines.map((m) => (
-                        <option key={m._id} value={m._id}>
-                          {m.name} (₹{m.rate ?? m.mrp})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="input-group">
-                    <label>Name *</label>
-                    <input
-                      value={item.medicineName}
-                      onChange={(e) =>
-                        handleItemChange(index, "medicineName", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="input-group">
-                    <label>HSN</label>
-                    <input
-                      value={item.hsn}
-                      onChange={(e) =>
-                        handleItemChange(index, "hsn", e.target.value)
-                      }
-                      placeholder="e.g. 3004"
-                    />
-                  </div>
-                  <div className="input-group">
-                    <label>Qty *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        handleItemChange(index, "quantity", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="input-group">
-                    <label>Free</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={item.free}
-                      onChange={(e) =>
-                        handleItemChange(index, "free", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="input-group">
-                    <label>Rate (₹) *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.rate}
-                      onChange={(e) =>
-                        handleItemChange(index, "rate", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                  {form.items.length > 1 && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => removeItem(index)}
-                      aria-label="Remove item"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
+              {medicines.length === 0 ? (
+                <div className="empty-state">
+                  No active medicines in inventory. Add medicines first.
                 </div>
-              ))}
+              ) : (
+                form.items.map((item, index) => (
+                <div key={index} className="invoice-item-card">
+                  <div className="invoice-item-row invoice-item-row-top">
+                    <div className="input-group">
+                      <label>Medicine *</label>
+                      <select
+                        value={item.medicine}
+                        onChange={(e) =>
+                          handleItemChange(index, "medicine", e.target.value)
+                        }
+                        className={fieldClass(
+                          formErrors,
+                          `items.${index}.medicine`,
+                        )}
+                      >
+                        <option value="">Select medicine</option>
+                        {medicines.map((m) => (
+                          <option key={m._id} value={m._id}>
+                            {m.name} (₹{m.rate ?? m.mrp})
+                          </option>
+                        ))}
+                      </select>
+                      <FieldError message={itemFieldError(index, "medicine")} />
+                    </div>
+                    <div className="input-group">
+                      <label>HSN</label>
+                      <input
+                        value={item.hsn}
+                        onChange={(e) =>
+                          handleItemChange(index, "hsn", e.target.value)
+                        }
+                        placeholder="3004"
+                        readOnly={Boolean(item.medicine)}
+                        className={fieldClass(formErrors, `items.${index}.hsn`)}
+                      />
+                      <FieldError message={itemFieldError(index, "hsn")} />
+                    </div>
+                  </div>
+                  <div className="invoice-item-row invoice-item-row-bottom">
+                    <div className="input-group">
+                      <label>Qty *</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) =>
+                          handleItemChange(index, "quantity", e.target.value)
+                        }
+                        className={fieldClass(
+                          formErrors,
+                          `items.${index}.quantity`,
+                        )}
+                      />
+                      <FieldError message={itemFieldError(index, "quantity")} />
+                    </div>
+                    <div className="input-group">
+                      <label>Free</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.free}
+                        onChange={(e) =>
+                          handleItemChange(index, "free", e.target.value)
+                        }
+                        className={fieldClass(formErrors, `items.${index}.free`)}
+                      />
+                      <FieldError message={itemFieldError(index, "free")} />
+                    </div>
+                    <div className="input-group">
+                      <label>GST %</label>
+                      <select
+                        value={item.gstRate}
+                        onChange={(e) =>
+                          handleItemChange(index, "gstRate", e.target.value)
+                        }
+                      >
+                        {GST_RATE_OPTIONS.map((rate) => (
+                          <option key={rate} value={rate}>
+                            {rate}%
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="input-group">
+                      <label>Rate (₹) *</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.rate}
+                        onChange={(e) =>
+                          handleItemChange(index, "rate", e.target.value)
+                        }
+                        className={fieldClass(formErrors, `items.${index}.rate`)}
+                      />
+                      <FieldError message={itemFieldError(index, "rate")} />
+                    </div>
+                    {form.items.length > 1 && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost invoice-item-remove"
+                        onClick={() => removeItem(index)}
+                        aria-label="Remove item"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+              )}
             </div>
 
             <div className="invoice-total">
-              Total: {formatCurrency(calcTotal())}
+              <div className="invoice-total-row">
+                <span>Subtotal</span>
+                <span>{formatCurrency(taxSummary.subtotal)}</span>
+              </div>
+              <div className="invoice-total-row">
+                <span>CGST</span>
+                <span>{formatCurrency(taxSummary.cgst)}</span>
+              </div>
+              <div className="invoice-total-row">
+                <span>SGST</span>
+                <span>{formatCurrency(taxSummary.sgst)}</span>
+              </div>
+              <div className="invoice-total-row invoice-total-grand">
+                <span>Grand Total</span>
+                <span>{formatCurrency(taxSummary.grandTotal)}</span>
+              </div>
             </div>
           </form>
         </Modal>

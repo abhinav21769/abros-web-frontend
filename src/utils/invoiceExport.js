@@ -1,22 +1,31 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { formatCalendarDate, toExcelSerialDate } from "./dateUtils";
+import { toExcelSerialDate } from "./dateUtils";
 import { isPaymentConfigured } from "../config/payment";
 import { generateUpiQrDataUrl, getInvoicePaymentNote } from "./upiPayment";
+import {
+  calculateInvoiceTax,
+  formatGstRate,
+  getLineItemGstRate,
+} from "./invoiceTax";
 
 const SELLER = {
   name: "ABROS HEALTHCARE",
-  address: "Shop-2, Shivpuri Colony, Sultanpur, Ambala City, Haryana",
+  addressLine: "Shop-2, Shivpuri Colony, Sultanpur, Ambala City.",
   pincode: "134003",
   phone: "8295566445",
+  phoneDisplay: "82955-66445",
   gstin: "06AFUPJ3372H1Z5",
-  dlNo: "D.L NO: - WLF20B2026HR000446, WLF21B2026HR000442",
-  forLabel: "FOR  ABROS HEALTHCARE",
+  dlNumbers: ["WLF20B2026HR000446", "WLF21B2026HR000442"],
+  bankName: "Punjab National Bank, Prem Nagar",
+  ifsc: "PUNB0120310",
+  account: "10401132000162",
+  forLabel: "For ABROS HEALTHCARE",
 };
 
 function getPaymentTypeLabel(invoice) {
-  return invoice?.paymentType === "cash" ? "Cash" : "Credit";
+  return invoice?.paymentType === "cash" ? "CASH" : "CREDIT";
 }
 
 const GST_SLABS = ["5.00", "12.00", "18.00", "28.00"];
@@ -31,7 +40,7 @@ const TERMS = [
 const ITEM_HEADERS = [
   "MFG",
   "Qty.",
-  "FREE",
+  "",
   "Pack",
   "PRODUCT",
   "HSN",
@@ -51,6 +60,11 @@ function formatAmount(value) {
 
 function sanitizeFilename(invoiceNumber) {
   return String(invoiceNumber).replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+
+function displayOrDash(value) {
+  const text = value == null ? "" : String(value).trim();
+  return text || "-";
 }
 
 function twoDigitWords(num) {
@@ -152,14 +166,23 @@ function getLineItemHsn(item) {
   return item.hsn || med?.hsn || "";
 }
 
+function formatLineItemQuantity(quantity, free) {
+  const qty = Number(quantity) || 0;
+  const freeQty = Number(free) || 0;
+  if (freeQty > 0) {
+    return `${qty}+${freeQty}`;
+  }
+  return String(qty);
+}
+
 function buildLineItemRow(item) {
   const med = getMedicine(item);
   const amount = Number(item.amount ?? item.quantity * item.rate);
 
   return [
     med?.manufacturer || "",
-    Number(item.quantity) || 0,
-    Number(item.free) || 0,
+    formatLineItemQuantity(item.quantity, item.free),
+    "",
     med?.packagingType || "",
     item.medicineName || med?.name || "",
     getLineItemHsn(item),
@@ -186,7 +209,7 @@ function buildBillHeaderRows(invoice) {
       "",
       getPaymentTypeLabel(invoice),
       "",
-      customer.name || "",
+      displayOrDash(customer.name),
       "",
       "",
       "",
@@ -194,9 +217,24 @@ function buildBillHeaderRows(invoice) {
       "",
       "",
     ],
-    ["", "", "", "", "", "", "", customer.address || "", "", "", "", "", ""],
     [
-      SELLER.address,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      displayOrDash(customer.address),
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ],
+    [
+      SELLER.addressLine,
       "",
       "",
       "",
@@ -204,7 +242,7 @@ function buildBillHeaderRows(invoice) {
       "",
       "",
       "Phone No:",
-      customer.contact || "",
+      displayOrDash(customer.contact),
       "",
       "",
       "",
@@ -222,7 +260,7 @@ function buildBillHeaderRows(invoice) {
       "",
       "",
       "",
-      customer.gstin || "",
+      displayOrDash(customer.gstin),
       "",
     ],
     [
@@ -237,11 +275,11 @@ function buildBillHeaderRows(invoice) {
       "",
       "",
       "",
-      customer.dlNo || "",
+      displayOrDash(customer.dlNo),
       "",
     ],
     [
-      SELLER.dlNo,
+      `GSTIN NO: ${SELLER.gstin}`,
       "",
       "",
       "",
@@ -257,7 +295,23 @@ function buildBillHeaderRows(invoice) {
       "",
     ],
     [
-      `GSTIN NO: ${SELLER.gstin}`,
+      `D.L NO: - ${SELLER.dlNumbers[0] || ""}`,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ],
+    [
+      SELLER.dlNumbers[1] || "",
       "",
       "",
       "",
@@ -407,164 +461,349 @@ export function downloadInvoiceExcel(invoice) {
   XLSX.writeFile(workbook, `${sanitizeFilename(invoice.invoiceNumber)}.xlsx`);
 }
 
-export async function downloadInvoicePdf(invoice) {
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 8;
-  const customer = invoice.customer || {};
-  let y = 10;
+const PDF_ITEM_HEADERS = [
+  "S. No.",
+  "Name of Product",
+  "Packing",
+  "HSN",
+  "MFG",
+  "BATCH",
+  "EXP.",
+  "QTY.",
+  "RATE",
+  "GST Rate",
+  "MRP",
+  "Amount",
+];
 
+function formatShortInvoiceDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}-${month}-${year}`;
+}
+
+function formatExpiryShort(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear()).slice(-2);
+  return `${month}-${year}`;
+}
+
+function calculateTaxSummary(invoice) {
+  return calculateInvoiceTax(invoice.items || []);
+}
+
+function buildPdfTableRows(invoice) {
+  return invoice.items.map((item, index) => {
+    const med = getMedicine(item);
+    const amount = Number(item.amount ?? item.quantity * item.rate);
+
+    return [
+      String(index + 1),
+      item.medicineName || med?.name || "",
+      med?.packagingType || "",
+      getLineItemHsn(item),
+      med?.manufacturer || "",
+      med?.batchNumber || "",
+      med?.expiryDate ? formatExpiryShort(med.expiryDate) : "",
+      formatLineItemQuantity(item.quantity, item.free),
+      formatAmount(item.rate),
+      formatGstRate(getLineItemGstRate(item)),
+      formatAmount(med?.mrp ?? item.rate),
+      formatAmount(amount),
+    ];
+  });
+}
+
+function drawPdfLabelValue(doc, label, value, x, y, labelWidth = 24) {
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(SELLER.name, margin, y);
-  doc.text(customer.name || "", pageWidth - margin, y, { align: "right" });
-
-  y += 6;
-  doc.setFontSize(9);
+  doc.setFontSize(8);
+  doc.text(label, x, y);
   doc.setFont("helvetica", "normal");
-  doc.text(SELLER.address, margin, y);
-  doc.text(customer.address || "", pageWidth - margin, y, { align: "right" });
+  doc.text(String(value || ""), x + labelWidth, y, {
+    maxWidth: 120,
+  });
+}
 
-  y += 5;
-  doc.text(SELLER.pincode, margin, y);
+export async function downloadInvoicePdf(invoice) {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 8;
+  const contentWidth = pageWidth - margin * 2;
+  const customer = invoice.customer || {};
+  const tax = calculateTaxSummary(invoice);
+  let y = margin;
 
-  y += 5;
-  doc.text(`Phone No: ${SELLER.phone}`, margin, y);
-  doc.text(
-    customer.contact ? `Phone No: ${customer.contact}` : "",
-    pageWidth - margin,
-    y,
-    { align: "right" },
-  );
+  const metaWidth = 52;
+  const metaX = margin + contentWidth - metaWidth;
 
-  y += 5;
-  doc.text(`GSTIN NO: ${SELLER.gstin}`, margin, y);
-  doc.text(
-    customer.gstin ? `GSTIN: ${customer.gstin}` : "",
-    pageWidth - margin,
-    y,
-    { align: "right" },
-  );
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text(`GSTIN: ${SELLER.gstin}`, margin, y + 4);
+  const dlLabel = "D.L NO: - ";
+  doc.text(`${dlLabel}${SELLER.dlNumbers[0] || ""}`, margin, y + 9);
+  if (SELLER.dlNumbers[1]) {
+    doc.text(SELLER.dlNumbers[1], margin + doc.getTextWidth(dlLabel), y + 14);
+  }
 
-  y += 5;
-  doc.text(SELLER.dlNo, margin, y);
-  doc.text(
-    customer.dlNo ? `DL NO: ${customer.dlNo}` : "DL NO:",
-    pageWidth - margin,
-    y,
-    { align: "right" },
-  );
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text("Invoice No.", metaX, y + 3);
+  doc.setFont("helvetica", "bold");
+  doc.text(String(invoice.invoiceNumber || ""), metaX + 20, y + 3);
+  doc.setFont("helvetica", "normal");
+  doc.text("Invoice Date", metaX, y + 8);
+  doc.setFont("helvetica", "bold");
+  doc.text(formatShortInvoiceDate(invoice.invoiceDate), metaX + 20, y + 8);
+  doc.setFont("helvetica", "normal");
+  doc.text("Invoice Type", metaX, y + 13);
+  doc.setFont("helvetica", "bold");
+  doc.text(getPaymentTypeLabel(invoice), metaX + 20, y + 13);
+
+  y += SELLER.dlNumbers[1] ? 29 : 24;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text(SELLER.name, pageWidth / 2, y, { align: "center" });
 
   y += 6;
-  doc.setFont("helvetica", "bold");
-  doc.text(`Invoice No: ${invoice.invoiceNumber}`, margin, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
   doc.text(
-    `Date: ${formatCalendarDate(invoice.invoiceDate)}`,
+    `${SELLER.addressLine} Phone No.: ${SELLER.phoneDisplay}`,
     pageWidth / 2,
     y,
+    { align: "center" },
   );
-  doc.text(getPaymentTypeLabel(invoice), pageWidth - margin, y, {
-    align: "right",
+
+  y += 6;
+  const receiverHeight = 34;
+  doc.rect(margin, y, contentWidth, receiverHeight);
+  doc.setFillColor(220, 220, 220);
+  doc.rect(margin, y, contentWidth, 6, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("DETAILS OF RECEIVER / BILLED TO", pageWidth / 2, y + 4.2, {
+    align: "center",
   });
 
-  y += 4;
-
-  const tableBody = invoice.items.map((item) => {
-    const row = buildLineItemRow(item);
-    return row.map((cell, index) => {
-      if (index === 7 && cell)
-        return formatCalendarDate(getMedicine(item)?.expiryDate);
-      if ([8, 9, 11, 12, 13].includes(index) && cell !== "")
-        return formatAmount(cell);
-      return cell === "" ? "" : String(cell);
-    });
+  const receiverTextY = y + 11;
+  drawPdfLabelValue(
+    doc,
+    "Name & Address:",
+    displayOrDash(customer.name),
+    margin + 2,
+    receiverTextY,
+    26,
+  );
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text(displayOrDash(customer.address), margin + 28, receiverTextY + 4, {
+    maxWidth: contentWidth - 32,
   });
+  drawPdfLabelValue(
+    doc,
+    "Phone No.:",
+    displayOrDash(customer.contact),
+    margin + 2,
+    receiverTextY + 10,
+    26,
+  );
+  drawPdfLabelValue(
+    doc,
+    "D.L. No.:",
+    displayOrDash(customer.dlNo),
+    margin + 2,
+    receiverTextY + 16,
+    26,
+  );
+  drawPdfLabelValue(
+    doc,
+    "GSTIN:",
+    displayOrDash(customer.gstin),
+    margin + 2,
+    receiverTextY + 22,
+    26,
+  );
+
+  y += receiverHeight + 2;
+
+  const tableRows = buildPdfTableRows(invoice);
+  const minRows = Math.max(8, tableRows.length);
+  const paddedRows = [
+    ...tableRows,
+    ...Array.from({ length: minRows - tableRows.length }, () =>
+      Array(PDF_ITEM_HEADERS.length).fill(""),
+    ),
+  ];
+
+  const totalAmount = formatAmount(tax.subtotal);
+  paddedRows.push([
+    "",
+    "TOTAL",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    totalAmount,
+  ]);
+
+  const pdfColumnWidths = [10, 36, 14, 11, 14, 14, 11, 11, 12, 10, 12, 18];
+  const widthScale =
+    contentWidth / pdfColumnWidths.reduce((sum, w) => sum + w, 0);
+  const scaledColumnStyles = pdfColumnWidths.reduce((styles, width, index) => {
+    styles[index] = {
+      cellWidth: width * widthScale,
+      ...(index === 0 || [2, 3, 4, 5, 6, 7, 9].includes(index)
+        ? { halign: "center" }
+        : {}),
+      ...([8, 10, 11].includes(index) ? { halign: "right" } : {}),
+    };
+    return styles;
+  }, {});
 
   autoTable(doc, {
     startY: y,
-    head: [ITEM_HEADERS],
-    body: tableBody,
+    head: [PDF_ITEM_HEADERS],
+    body: paddedRows,
+    tableWidth: contentWidth,
     theme: "grid",
-    styles: { fontSize: 7, cellPadding: 1.5 },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 1.2,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.2,
+      textColor: [0, 0, 0],
+      valign: "middle",
+    },
     headStyles: {
-      fillColor: [240, 240, 240],
-      textColor: 20,
+      fillColor: [235, 235, 235],
+      textColor: [0, 0, 0],
       fontStyle: "bold",
+      halign: "center",
     },
-    columnStyles: {
-      0: { cellWidth: 18 },
-      4: { cellWidth: 42 },
-      8: { halign: "right" },
-      9: { halign: "right" },
-      13: { halign: "right" },
+    columnStyles: scaledColumnStyles,
+    margin: { left: margin, right: margin, bottom: 62 },
+    didParseCell(data) {
+      if (
+        data.section === "body" &&
+        data.row.index === paddedRows.length - 1 &&
+        data.column.index === 1
+      ) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.halign = "right";
+      }
+      if (
+        data.section === "body" &&
+        data.row.index === paddedRows.length - 1 &&
+        data.column.index === 11
+      ) {
+        data.cell.styles.fontStyle = "bold";
+      }
     },
-    margin: { left: margin, right: margin },
   });
 
-  y = doc.lastAutoTable.finalY + 6;
+  const footerHeight = 52;
+  const wordsHeight = 8;
+  const footerY = pageHeight - margin - footerHeight;
+  let wordsY = doc.lastAutoTable.finalY + 3;
+
+  if (wordsY + wordsHeight > footerY - 2) {
+    doc.addPage();
+    wordsY = margin;
+  }
+
+  doc.rect(margin, wordsY, contentWidth, wordsHeight);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text(`TOTAL: Rs. ${formatAmount(invoice.total)}`, pageWidth - margin, y, {
-    align: "right",
+  doc.setFontSize(8);
+  doc.text("Amount in words:", margin + 2, wordsY + 5);
+  doc.setFont("helvetica", "normal");
+  doc.text(amountInWords(tax.grandTotal), margin + 30, wordsY + 5, {
+    maxWidth: contentWidth - 32,
   });
 
-  y += 6;
-  doc.setFont("helvetica", "normal");
-  doc.text(amountInWords(invoice.total), margin, y);
+  const footerTop = footerY;
+  const leftFooterWidth = 58;
+  const rightBoxWidth = 48;
+  const centerWidth = contentWidth - leftFooterWidth - rightBoxWidth;
 
-  y += 8;
-  const footerStartY = y;
-  const qrSize = 28;
-  let qrDataUrl = null;
+  doc.rect(margin, footerTop, leftFooterWidth, footerHeight);
+  doc.rect(margin + leftFooterWidth, footerTop, centerWidth, footerHeight);
+  doc.rect(
+    margin + leftFooterWidth + centerWidth,
+    footerTop,
+    rightBoxWidth,
+    footerHeight,
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("Bank Details:", margin + 2, footerTop + 5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(SELLER.bankName, margin + 2, footerTop + 9.5);
+  doc.text(`ACCOUNT : ${SELLER.account}`, margin + 2, footerTop + 14);
+  doc.text(`IFSC : ${SELLER.ifsc}`, margin + 2, footerTop + 18.5, {
+    maxWidth: leftFooterWidth - 4,
+  });
+
+  const termsX = margin + leftFooterWidth + 2;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.text("Terms & Conditions", termsX, footerTop + 5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.8);
+  TERMS.forEach((term, index) => {
+    doc.text(term, termsX, footerTop + 9 + index * 3.6, {
+      maxWidth: centerWidth - 4,
+    });
+  });
+
+  const rightBoxX = margin + leftFooterWidth + centerWidth;
+  const signatoryX = rightBoxX + rightBoxWidth / 2;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(
+    "Certified that the particulars given above are true & correct.",
+    signatoryX,
+    footerTop + 18,
+    { align: "center", maxWidth: rightBoxWidth - 4 },
+  );
+  doc.setFont("helvetica", "bold");
+  doc.text(SELLER.forLabel, signatoryX, footerTop + 30, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.text("Authorised Signatory", signatoryX, footerTop + footerHeight - 6, {
+    align: "center",
+  });
 
   if (isPaymentConfigured() && invoice.status !== "cancelled") {
     try {
-      qrDataUrl = await generateUpiQrDataUrl({
-        amount: invoice.total,
+      const qrDataUrl = await generateUpiQrDataUrl({
+        amount: tax.grandTotal,
         note: getInvoicePaymentNote(invoice),
+      });
+      const qrSize = 22;
+      const qrX = margin + (leftFooterWidth - qrSize) / 2;
+      const qrY = footerTop + 22;
+
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.text("Scan to Pay", margin + leftFooterWidth / 2, qrY + qrSize + 4, {
+        align: "center",
       });
     } catch {
       // Skip QR on PDF if generation fails.
     }
-  }
-
-  const signatureX = qrDataUrl
-    ? pageWidth - margin - qrSize - 10
-    : pageWidth - margin;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("Terms & Conditions", margin, y);
-
-  if (!qrDataUrl) {
-    doc.text("Receiver", pageWidth - 50, y);
-    doc.text(SELLER.forLabel, pageWidth - margin, y, { align: "right" });
-  }
-
-  doc.setFont("helvetica", "normal");
-  TERMS.forEach((term, index) => {
-    doc.text(term, margin, y + 5 + index * 4, {
-      maxWidth: qrDataUrl ? signatureX - margin - 6 : undefined,
-    });
-  });
-
-  const termsEndY = y + 5 + TERMS.length * 4;
-
-  if (qrDataUrl) {
-    const qrX = pageWidth - margin - qrSize;
-    const qrY = footerStartY;
-
-    doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("Scan to Pay", qrX + qrSize / 2, qrY + qrSize + 4, {
-      align: "center",
-    });
-
-    const signatureY = Math.max(termsEndY + 2, qrY + qrSize + 12);
-    doc.setFontSize(9);
-    doc.text("Receiver", signatureX, signatureY, { align: "right" });
-    doc.text(SELLER.forLabel, signatureX, signatureY + 5, { align: "right" });
   }
 
   doc.save(`${sanitizeFilename(invoice.invoiceNumber)}.pdf`);

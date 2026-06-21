@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
+import FieldError from "../components/ui/FieldError";
 import { medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { GST_RATE_OPTIONS } from "../utils/invoiceTax";
+import {
+  clearFieldError,
+  fieldClass,
+  hasErrors,
+  validateMedicineForm,
+} from "../utils/formValidation";
 
 const PTR_DISCOUNT = 0.238;
 
@@ -13,6 +22,7 @@ const emptyForm = {
   packagingType: "",
   mrp: "",
   rate: "",
+  gstRate: "5",
   quantity: "",
   batchNumber: "",
   manufacturer: "",
@@ -62,6 +72,7 @@ export default function Inventory() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
   const fetchItems = useCallback(() => {
@@ -86,6 +97,7 @@ export default function Inventory() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setFormErrors({});
     setModalOpen(true);
   };
 
@@ -101,17 +113,28 @@ export default function Inventory() {
       batchNumber: item.batchNumber || "",
       manufacturer: item.manufacturer || "",
       hsn: item.hsn || "",
+      gstRate: String(item.gstRate ?? 5),
       description: item.description || "",
     });
+    setFormErrors({});
     setModalOpen(true);
   };
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => clearFieldError(prev, name));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateMedicineForm(form);
+    setFormErrors(errors);
+    if (hasErrors(errors)) {
+      toast.error("Please fix the highlighted fields.");
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -125,6 +148,7 @@ export default function Inventory() {
       batchNumber: form.batchNumber || undefined,
       manufacturer: form.manufacturer || undefined,
       hsn: form.hsn || undefined,
+      gstRate: Number(form.gstRate) || 5,
       description: form.description || undefined,
     };
 
@@ -196,6 +220,7 @@ export default function Inventory() {
                     <th>Qty</th>
                     <th>MRP</th>
                     <th>Rate</th>
+                    <th>GST</th>
                     <th>PTR</th>
                     <th>Status</th>
                     <th></th>
@@ -224,6 +249,7 @@ export default function Inventory() {
                       <td>{item.quantity}</td>
                       <td>{formatCurrency(item.mrp)}</td>
                       <td>{formatCurrency(item.rate)}</td>
+                      <td>{item.gstRate ?? 5}%</td>
                       <td>{formatCurrency(item.ptr)}</td>
                       <td>{getExpiryBadge(item.expiryDate)}</td>
                       <td>
@@ -250,30 +276,12 @@ export default function Inventory() {
               </table>
             </div>
 
-            {pagination && pagination.totalPages > 1 && (
-              <div className="pagination">
-                <span>
-                  Page {pagination.currentPage} of {pagination.totalPages} ·{" "}
-                  {pagination.totalItems} items
-                </span>
-                <div className="pagination-btns">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={page >= pagination.totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              pagination={pagination}
+              page={page}
+              onPageChange={setPage}
+              itemLabel="items"
+            />
           </>
         )}
       </div>
@@ -307,8 +315,9 @@ export default function Inventory() {
                 name="name"
                 value={form.name}
                 onChange={handleChange}
-                required
+                className={fieldClass(formErrors, "name")}
               />
+              <FieldError message={formErrors.name} />
             </div>
             <div className="input-group">
               <label>Packaging Type *</label>
@@ -317,8 +326,9 @@ export default function Inventory() {
                 value={form.packagingType}
                 onChange={handleChange}
                 placeholder="Strip, Bottle, Box..."
-                required
+                className={fieldClass(formErrors, "packagingType")}
               />
+              <FieldError message={formErrors.packagingType} />
             </div>
             <div className="input-group">
               <label>Batch Number</label>
@@ -335,8 +345,9 @@ export default function Inventory() {
                 name="expiryDate"
                 value={form.expiryDate}
                 onChange={handleChange}
-                required
+                className={fieldClass(formErrors, "expiryDate")}
               />
+              <FieldError message={formErrors.expiryDate} />
             </div>
             <div className="input-group">
               <label>MRP (₹) *</label>
@@ -347,8 +358,9 @@ export default function Inventory() {
                 onChange={handleChange}
                 min="0"
                 step="0.01"
-                required
+                className={fieldClass(formErrors, "mrp")}
               />
+              <FieldError message={formErrors.mrp} />
             </div>
             <div className="input-group">
               <label>Rate (₹) *</label>
@@ -359,8 +371,9 @@ export default function Inventory() {
                 onChange={handleChange}
                 min="0"
                 step="0.01"
-                required
+                className={fieldClass(formErrors, "rate")}
               />
+              <FieldError message={formErrors.rate} />
             </div>
             <div className="input-group">
               <label>PTR (₹)</label>
@@ -385,7 +398,9 @@ export default function Inventory() {
                 value={form.quantity}
                 onChange={handleChange}
                 min="0"
+                className={fieldClass(formErrors, "quantity")}
               />
+              <FieldError message={formErrors.quantity} />
             </div>
             <div className="input-group">
               <label>Manufacturer</label>
@@ -396,13 +411,30 @@ export default function Inventory() {
               />
             </div>
             <div className="input-group">
+              <label>GST Rate (%) *</label>
+              <select
+                name="gstRate"
+                value={form.gstRate}
+                onChange={handleChange}
+                required
+              >
+                {GST_RATE_OPTIONS.map((rate) => (
+                  <option key={rate} value={rate}>
+                    {rate}%
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="input-group">
               <label>HSN</label>
               <input
                 name="hsn"
                 value={form.hsn}
                 onChange={handleChange}
                 placeholder="e.g. 3004"
+                className={fieldClass(formErrors, "hsn")}
               />
+              <FieldError message={formErrors.hsn} />
             </div>
             <div className="input-group full-width">
               <label>Description</label>

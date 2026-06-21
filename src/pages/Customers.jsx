@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
+import FieldError from "../components/ui/FieldError";
 import { customersApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import {
+  clearFieldError,
+  fieldClass,
+  hasErrors,
+  validateCustomerForm,
+} from "../utils/formValidation";
 
 const emptyForm = {
   name: "",
@@ -23,6 +31,7 @@ export default function Customers() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
   const fetchItems = useCallback(() => {
@@ -47,6 +56,7 @@ export default function Customers() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setFormErrors({});
     setModalOpen(true);
   };
 
@@ -59,15 +69,25 @@ export default function Customers() {
       gstin: item.gstin || "",
       dlNo: item.dlNo || "",
     });
+    setFormErrors({});
     setModalOpen(true);
   };
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => clearFieldError(prev, name));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateCustomerForm(form);
+    setFormErrors(errors);
+    if (hasErrors(errors)) {
+      toast.error("Please fix the highlighted fields.");
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -178,30 +198,12 @@ export default function Customers() {
               </table>
             </div>
 
-            {pagination && pagination.totalPages > 1 && (
-              <div className="pagination">
-                <span>
-                  Page {pagination.currentPage} of {pagination.totalPages} ·{" "}
-                  {pagination.totalItems} customers
-                </span>
-                <div className="pagination-btns">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={page >= pagination.totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              pagination={pagination}
+              page={page}
+              onPageChange={setPage}
+              itemLabel="customers"
+            />
           </>
         )}
       </div>
@@ -224,23 +226,55 @@ export default function Customers() {
           <form onSubmit={handleSubmit} className="form-grid">
             <div className="input-group full-width">
               <label>Store / Customer Name *</label>
-              <input name="name" value={form.name} onChange={handleChange} required />
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                className={fieldClass(formErrors, "name")}
+              />
+              <FieldError message={formErrors.name} />
             </div>
             <div className="input-group full-width">
               <label>Address *</label>
-              <textarea name="address" value={form.address} onChange={handleChange} required />
+              <textarea
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+                className={fieldClass(formErrors, "address")}
+              />
+              <FieldError message={formErrors.address} />
             </div>
             <div className="input-group">
               <label>Contact</label>
-              <input name="contact" value={form.contact} onChange={handleChange} />
+              <input
+                name="contact"
+                value={form.contact}
+                onChange={handleChange}
+                placeholder="10-digit mobile"
+                className={fieldClass(formErrors, "contact")}
+              />
+              <FieldError message={formErrors.contact} />
             </div>
             <div className="input-group">
               <label>GSTIN</label>
-              <input name="gstin" value={form.gstin} onChange={handleChange} />
+              <input
+                name="gstin"
+                value={form.gstin}
+                onChange={handleChange}
+                placeholder="15-character GSTIN"
+                className={fieldClass(formErrors, "gstin")}
+              />
+              <FieldError message={formErrors.gstin} />
             </div>
             <div className="input-group full-width">
               <label>Drug License No.</label>
-              <input name="dlNo" value={form.dlNo} onChange={handleChange} />
+              <input
+                name="dlNo"
+                value={form.dlNo}
+                onChange={handleChange}
+                className={fieldClass(formErrors, "dlNo")}
+              />
+              <FieldError message={formErrors.dlNo} />
             </div>
           </form>
         </Modal>
