@@ -78,6 +78,11 @@ function paymentTypeLabel(paymentType) {
   return paymentType === "cash" ? "Cash" : "Credit";
 }
 
+function getMedicineDefaultRate(med) {
+  if (med?.ptr != null && med.ptr !== "") return med.ptr;
+  return med?.rate ?? med.mrp ?? "";
+}
+
 export default function Invoices() {
   const toast = useToast();
   const [items, setItems] = useState([]);
@@ -188,7 +193,7 @@ export default function Invoices() {
         const med = medicines.find((m) => m._id === value);
         if (med) {
           items[index].medicineName = med.name;
-          items[index].rate = String(med.rate ?? med.mrp);
+          items[index].rate = String(getMedicineDefaultRate(med));
           items[index].hsn = med.hsn || "";
           items[index].gstRate = String(med.gstRate ?? 5);
         } else {
@@ -583,7 +588,7 @@ export default function Invoices() {
                         <option value="">Select medicine</option>
                         {medicines.map((m) => (
                           <option key={m._id} value={m._id}>
-                            {m.name} (₹{m.rate ?? m.mrp})
+                            {m.name} (PTR ₹{getMedicineDefaultRate(m)})
                           </option>
                         ))}
                       </select>
@@ -649,7 +654,7 @@ export default function Invoices() {
                       </select>
                     </div>
                     <div className="input-group">
-                      <label>Rate (₹) *</label>
+                      <label>Rate / PTR (₹) *</label>
                       <input
                         type="number"
                         min="0"
