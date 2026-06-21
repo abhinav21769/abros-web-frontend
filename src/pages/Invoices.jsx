@@ -1,17 +1,40 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Download,
+  FileSpreadsheet,
+} from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Modal from "../components/ui/Modal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import {
+  downloadInvoicePdf,
+  downloadInvoiceExcel,
+} from "../utils/invoiceExport";
+import {
+  formatCalendarDate,
+  getTodayDateInputValue,
+  toDateInputValue,
+  toInvoiceDatePayload,
+} from "../utils/dateUtils";
 
-const emptyItem = { medicine: "", medicineName: "", quantity: "1", rate: "" };
+const emptyItem = {
+  medicine: "",
+  medicineName: "",
+  quantity: "1",
+  free: "0",
+  rate: "",
+};
 
 const emptyForm = {
   invoiceNumber: "",
   customer: "",
   status: "pending",
-  invoiceDate: new Date().toISOString().split("T")[0],
+  invoiceDate: getTodayDateInputValue(),
   notes: "",
   items: [{ ...emptyItem }],
 };
@@ -23,21 +46,15 @@ function formatCurrency(value) {
   }).format(Number(value) || 0);
 }
 
-function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function statusBadge(status) {
   const map = {
     paid: "badge-success",
     pending: "badge-warning",
     cancelled: "badge-danger",
   };
-  return <span className={`badge ${map[status] || "badge-neutral"}`}>{status}</span>;
+  return (
+    <span className={`badge ${map[status] || "badge-neutral"}`}>{status}</span>
+  );
 }
 
 export default function Invoices() {
@@ -103,12 +120,13 @@ export default function Invoices() {
         invoiceNumber: item.invoiceNumber,
         customer: item.customer._id || item.customer,
         status: item.status,
-        invoiceDate: item.invoiceDate.split("T")[0],
+        invoiceDate: toDateInputValue(item.invoiceDate),
         notes: item.notes || "",
         items: item.items.map((i) => ({
           medicine: i.medicine?._id || i.medicine || "",
           medicineName: i.medicineName,
           quantity: String(i.quantity),
+          free: String(i.free ?? 0),
           rate: String(i.rate),
         })),
       });
@@ -155,8 +173,9 @@ export default function Invoices() {
 
   const calcTotal = () =>
     form.items.reduce(
-      (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0),
-      0
+      (sum, item) =>
+        sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0),
+      0,
     );
 
   const handleSubmit = async (e) => {
@@ -167,12 +186,13 @@ export default function Invoices() {
       invoiceNumber: form.invoiceNumber,
       customer: form.customer,
       status: form.status,
-      invoiceDate: new Date(form.invoiceDate).toISOString(),
+      invoiceDate: toInvoiceDatePayload(form.invoiceDate),
       notes: form.notes || undefined,
       items: form.items.map((item) => ({
         medicine: item.medicine || undefined,
         medicineName: item.medicineName,
         quantity: Number(item.quantity),
+        free: Number(item.free) || 0,
         rate: Number(item.rate),
       })),
     };
@@ -197,6 +217,26 @@ export default function Invoices() {
       const res = await invoicesApi.remove(id);
       toast.success(res.message);
       fetchItems();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleDownloadPdf = async (invoice) => {
+    try {
+      const res = await invoicesApi.get(invoice._id);
+      downloadInvoicePdf(res.data);
+      toast.success("Invoice downloaded as PDF.");
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleDownloadExcel = async (invoice) => {
+    try {
+      const res = await invoicesApi.get(invoice._id);
+      downloadInvoiceExcel(res.data);
+      toast.success("Invoice downloaded as Excel.");
     } catch (err) {
       toast.error(err.message);
     }
@@ -249,14 +289,32 @@ export default function Invoices() {
                 <tbody>
                   {items.map((item) => (
                     <tr key={item._id}>
-                      <td><strong>{item.invoiceNumber}</strong></td>
+                      <td>
+                        <strong>{item.invoiceNumber}</strong>
+                      </td>
                       <td>{item.customer?.name || "—"}</td>
-                      <td>{formatDate(item.invoiceDate)}</td>
+                      <td>{formatCalendarDate(item.invoiceDate)}</td>
                       <td>{item.items.length}</td>
                       <td>{formatCurrency(item.total)}</td>
                       <td>{statusBadge(item.status)}</td>
                       <td>
                         <div className="actions-cell">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleDownloadPdf(item)}
+                            aria-label="Download PDF"
+                            title="Download PDF"
+                          >
+                            <Download size={15} />
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleDownloadExcel(item)}
+                            aria-label="Download Excel"
+                            title="Download Excel"
+                          >
+                            <FileSpreadsheet size={15} />
+                          </button>
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() => openEdit(item)}
@@ -314,11 +372,22 @@ export default function Invoices() {
           large
           footer={
             <>
-              <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setModalOpen(false)}
+              >
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
-                {saving ? "Saving..." : editing ? "Update Invoice" : "Create Invoice"}
+              <button
+                className="btn btn-primary"
+                onClick={handleSubmit}
+                disabled={saving}
+              >
+                {saving
+                  ? "Saving..."
+                  : editing
+                    ? "Update Invoice"
+                    : "Create Invoice"}
               </button>
             </>
           }
@@ -362,7 +431,11 @@ export default function Invoices() {
               </div>
               <div className="input-group">
                 <label>Status</label>
-                <select name="status" value={form.status} onChange={handleChange}>
+                <select
+                  name="status"
+                  value={form.status}
+                  onChange={handleChange}
+                >
                   <option value="pending">Pending</option>
                   <option value="paid">Paid</option>
                   <option value="cancelled">Cancelled</option>
@@ -370,13 +443,28 @@ export default function Invoices() {
               </div>
               <div className="input-group full-width">
                 <label>Notes</label>
-                <textarea name="notes" value={form.notes} onChange={handleChange} />
+                <textarea
+                  name="notes"
+                  value={form.notes}
+                  onChange={handleChange}
+                />
               </div>
             </div>
 
-            <div style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                marginBottom: 12,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <strong>Line Items</strong>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={addItem}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={addItem}
+              >
                 <Plus size={14} /> Add Item
               </button>
             </div>
@@ -388,7 +476,9 @@ export default function Invoices() {
                     <label>Medicine</label>
                     <select
                       value={item.medicine}
-                      onChange={(e) => handleItemChange(index, "medicine", e.target.value)}
+                      onChange={(e) =>
+                        handleItemChange(index, "medicine", e.target.value)
+                      }
                     >
                       <option value="">Custom / Manual</option>
                       {medicines.map((m) => (
@@ -421,13 +511,26 @@ export default function Invoices() {
                     />
                   </div>
                   <div className="input-group">
+                    <label>Free</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.free}
+                      onChange={(e) =>
+                        handleItemChange(index, "free", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="input-group">
                     <label>Rate (₹) *</label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={item.rate}
-                      onChange={(e) => handleItemChange(index, "rate", e.target.value)}
+                      onChange={(e) =>
+                        handleItemChange(index, "rate", e.target.value)
+                      }
                       required
                     />
                   </div>

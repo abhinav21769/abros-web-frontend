@@ -104,7 +104,7 @@ export default function Dashboard() {
     {
       label: "Inventory Value",
       value: formatCurrency(invStats.totalInventoryValue),
-      sub: "At MRP pricing",
+      sub: "At rate pricing",
     },
     {
       label: "Customers",
