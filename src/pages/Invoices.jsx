@@ -12,6 +12,7 @@ import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
 import FieldError from "../components/ui/FieldError";
+import LottieLoader from "../components/ui/LottieLoader";
 import PaymentQrModal from "../components/PaymentQrModal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
@@ -330,7 +331,9 @@ export default function Invoices() {
         </div>
 
         {loading ? (
-          <div className="loading">Loading invoices...</div>
+          <div className="loading">
+            <LottieLoader message="Loading invoices..." compact />
+          </div>
         ) : items.length === 0 ? (
           <div className="empty-state">No invoices found</div>
         ) : (

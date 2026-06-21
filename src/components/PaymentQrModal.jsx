@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Modal from "./ui/Modal";
+import LottieLoader from "./ui/LottieLoader";
 import BrandLogo from "./BrandLogo";
 import { PAYMENT_CONFIG, isPaymentConfigured } from "../config/payment";
 import {
@@ -40,9 +41,9 @@ export default function PaymentQrModal({ invoice, onClose }) {
   return (
     <Modal title="Pay via UPI" onClose={onClose}>
       <div className="payment-qr-modal">
-        <BrandLogo size={48} className="payment-qr-brand" />
+        {!loading ? <BrandLogo size={48} className="payment-qr-brand" /> : null}
         {loading ? (
-          <div className="payment-qr-loading">Generating payment QR...</div>
+          <LottieLoader message="Generating payment QR..." compact logoSize={40} />
         ) : error ? (
           <div className="payment-qr-error">{error}</div>
         ) : (

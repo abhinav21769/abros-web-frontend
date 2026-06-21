@@ -16,6 +16,7 @@
     "framer-motion": "^12.40.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^1.21.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",

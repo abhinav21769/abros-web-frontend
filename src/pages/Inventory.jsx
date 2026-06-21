@@ -4,6 +4,7 @@ import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
 import FieldError from "../components/ui/FieldError";
+import LottieLoader from "../components/ui/LottieLoader";
 import { medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { GST_RATE_OPTIONS } from "../utils/invoiceTax";
@@ -203,7 +204,9 @@ export default function Inventory() {
         </div>
 
         {loading ? (
-          <div className="loading">Loading inventory...</div>
+          <div className="loading">
+            <LottieLoader message="Loading inventory..." compact />
+          </div>
         ) : items.length === 0 ? (
           <div className="empty-state">No medicines found</div>
         ) : (

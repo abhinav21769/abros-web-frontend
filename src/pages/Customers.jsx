@@ -4,6 +4,7 @@ import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
 import FieldError from "../components/ui/FieldError";
+import LottieLoader from "../components/ui/LottieLoader";
 import { customersApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import {
@@ -149,7 +150,9 @@ export default function Customers() {
         </div>
 
         {loading ? (
-          <div className="loading">Loading customers...</div>
+          <div className="loading">
+            <LottieLoader message="Loading customers..." compact />
+          </div>
         ) : items.length === 0 ? (
           <div className="empty-state">No customers found</div>
         ) : (

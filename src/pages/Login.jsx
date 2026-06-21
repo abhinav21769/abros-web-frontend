@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo";
 import FieldError from "../components/ui/FieldError";
+import LottieLoader from "../components/ui/LottieLoader";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import {
@@ -20,11 +21,7 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
-    return (
-      <div className="auth-loading">
-        <div className="auth-loading-card">Loading...</div>
-      </div>
-    );
+    return <LottieLoader fullScreen message="Loading..." />;
   }
 
   if (isAuthenticated) {

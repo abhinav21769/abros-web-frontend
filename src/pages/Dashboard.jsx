@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Clock, Package, Users, FileText } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import LottieLoader from "../components/ui/LottieLoader";
 import { MovingBorder } from "../components/ui/moving-border";
 import { SpotlightCard } from "../components/ui/spotlight-card";
 import { FadeIn } from "../components/ui/fade-in";
@@ -65,19 +66,7 @@ export default function Dashboard() {
   }, [toast]);
 
   if (loading) {
-    return (
-      <div className="grid gap-4">
-        <div className="h-16 animate-pulse rounded-[10px] bg-neutral-200/70" />
-        <div className="stats-grid">
-          {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="h-28 animate-pulse rounded-[10px] bg-neutral-200/70"
-            />
-          ))}
-        </div>
-      </div>
-    );
+    return <LottieLoader fullScreen message="Loading dashboard..." />;
   }
 
   if (loadFailed || !inventory || !customers || !invoices) {
