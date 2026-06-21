@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Clock, Package, Users, FileText } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  Package,
+  Users,
+  FileText,
+  ShoppingCart,
+  BookOpen,
+} from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
 import { MovingBorder } from "../components/ui/moving-border";
@@ -24,6 +32,17 @@ function formatDate(dateStr) {
     month: "short",
     year: "numeric",
   });
+}
+
+function statusBadge(status) {
+  const map = {
+    paid: "badge-success",
+    pending: "badge-warning",
+    cancelled: "badge-danger",
+  };
+  return (
+    <span className={`badge ${map[status] || "badge-neutral"}`}>{status}</span>
+  );
 }
 
 function StatCard({ label, value, sub, valueStyle, icon }) {
@@ -79,7 +98,8 @@ export default function Dashboard() {
 
   const invStats = inventory.data.stats;
   const custStats = customers.data.stats;
-  const invcStats = invoices.data.stats;
+  const salesStats = invoices.data.sales.stats;
+  const purchaseStats = invoices.data.purchases.stats;
 
   const primaryStats = [
     {
@@ -93,17 +113,20 @@ export default function Dashboard() {
       sub: "At rate pricing",
     },
     {
-      label: "Customers",
-      value: custStats.totalCustomers,
-      sub: "Registered buyers",
+      label: "Sales Revenue",
+      value: formatCurrency(salesStats.totalRevenue),
+      sub:
+        salesStats.pendingAmount > 0
+          ? `${formatCurrency(salesStats.pendingAmount)} pending`
+          : `${salesStats.paidInvoices} paid invoices`,
     },
     {
-      label: "Revenue (Paid)",
-      value: formatCurrency(invcStats.totalRevenue),
+      label: "Purchase Orders",
+      value: purchaseStats.totalInvoices,
       sub:
-        invcStats.pendingAmount > 0
-          ? `${formatCurrency(invcStats.pendingAmount)} pending`
-          : null,
+        purchaseStats.totalAmount > 0
+          ? `${formatCurrency(purchaseStats.totalAmount)} total value`
+          : "No purchase orders yet",
     },
   ];
 
@@ -132,9 +155,9 @@ export default function Dashboard() {
       sub: "Items below 10 units",
     },
     {
-      label: "Invoices",
-      value: invcStats.totalInvoices,
-      sub: `${invcStats.pendingInvoices} pending · ${invcStats.paidInvoices} paid`,
+      label: "Customers",
+      value: custStats.totalCustomers,
+      sub: `${salesStats.totalInvoices} sale · ${purchaseStats.totalInvoices} purchase`,
     },
   ];
 
@@ -142,7 +165,7 @@ export default function Dashboard() {
     <>
       <PageHeader
         title="Dashboard"
-        subtitle="Overview of your pharmacy inventory and operations"
+        subtitle="Overview of inventory, sales, and purchase orders"
       />
 
       <FadeIn className="stats-grid" delay={0.05}>
@@ -166,6 +189,97 @@ export default function Dashboard() {
       </FadeIn>
 
       <FadeIn className="dashboard-grid" delay={0.15}>
+        <SpotlightCard>
+          <div className="card border-0 bg-transparent shadow-none">
+            <div className="card-header">
+              <h3>Recent Sales</h3>
+              <Link to="/invoices" className="btn btn-secondary btn-sm">
+                View All
+              </Link>
+            </div>
+            <div className="card-body">
+              {invoices.data.sales.recent.length === 0 ? (
+                <div className="empty-state">No sale invoices yet</div>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Invoice #</th>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.data.sales.recent.map((inv) => (
+                        <tr key={inv._id}>
+                          <td>
+                            <strong>{inv.invoiceNumber}</strong>
+                          </td>
+                          <td>{inv.customer?.name || "—"}</td>
+                          <td>{formatDate(inv.invoiceDate)}</td>
+                          <td>{formatCurrency(inv.total)}</td>
+                          <td>{statusBadge(inv.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </SpotlightCard>
+
+        <SpotlightCard>
+          <div className="card border-0 bg-transparent shadow-none">
+            <div className="card-header">
+              <h3>Recent Purchases</h3>
+              <Link
+                to="/invoices?type=purchase"
+                className="btn btn-secondary btn-sm"
+              >
+                View All
+              </Link>
+            </div>
+            <div className="card-body">
+              {invoices.data.purchases.recent.length === 0 ? (
+                <div className="empty-state">No purchase orders yet</div>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>PO #</th>
+                        <th>Supplier</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.data.purchases.recent.map((inv) => (
+                        <tr key={inv._id}>
+                          <td>
+                            <strong>{inv.invoiceNumber}</strong>
+                          </td>
+                          <td>{inv.supplier || "—"}</td>
+                          <td>{formatDate(inv.invoiceDate)}</td>
+                          <td>{formatCurrency(inv.total)}</td>
+                          <td>{statusBadge(inv.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </SpotlightCard>
+      </FadeIn>
+
+      <FadeIn className="dashboard-grid" delay={0.2}>
         <SpotlightCard>
           <div className="card border-0 bg-transparent shadow-none">
             <div className="card-header">
@@ -242,17 +356,23 @@ export default function Dashboard() {
       </FadeIn>
 
       <FadeIn
-        delay={0.2}
+        delay={0.25}
         style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}
       >
         <ShimmerButton as={Link} to="/inventory">
           <Package size={16} /> Add Medicine
         </ShimmerButton>
-        <Link to="/customers" className="btn btn-secondary">
-          <Users size={16} /> Add Customer
-        </Link>
         <Link to="/invoices" className="btn btn-secondary">
-          <FileText size={16} /> Create Invoice
+          <FileText size={16} /> New Sale
+        </Link>
+        <Link to="/invoices?type=purchase" className="btn btn-secondary">
+          <ShoppingCart size={16} /> New Purchase
+        </Link>
+        <Link to="/ledger" className="btn btn-secondary">
+          <BookOpen size={16} /> Stock Ledger
+        </Link>
+        <Link to="/customers" className="btn btn-secondary">
+          <Users size={16} /> Customers
         </Link>
       </FadeIn>
     </>

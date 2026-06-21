@@ -16,6 +16,7 @@ import Modal from "../components/ui/Modal";
 import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
+import AddMedicineModal from "../components/AddMedicineModal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import {
@@ -119,6 +120,7 @@ export default function Invoices() {
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState(null);
+  const [newMedicineLineIndex, setNewMedicineLineIndex] = useState(null);
   const [invoiceType, setInvoiceType] = useState(tabFromUrl);
   const isPurchase = invoiceType === "purchase";
 
@@ -171,7 +173,7 @@ export default function Invoices() {
     try {
       const { invoiceNumber, medicines: activeMedicines } =
         await loadFormData(invoiceType);
-      if (activeMedicines.length === 0) {
+      if (activeMedicines.length === 0 && invoiceType !== "purchase") {
         toast.error("Add medicines to inventory before creating an invoice.");
         return;
       }
@@ -182,6 +184,18 @@ export default function Invoices() {
     } catch (err) {
       toast.error(err.message);
     }
+  };
+
+  const handleMedicineCreated = (medicine) => {
+    setMedicines((prev) => {
+      if (prev.some((item) => item._id === medicine._id)) return prev;
+      return [...prev, medicine];
+    });
+
+    if (newMedicineLineIndex != null) {
+      handleItemChange(newMedicineLineIndex, "medicine", medicine._id);
+    }
+    setNewMedicineLineIndex(null);
   };
 
   const openEdit = async (item) => {
@@ -714,14 +728,14 @@ export default function Invoices() {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={addItem}
-                disabled={medicines.length === 0}
+                disabled={!formIsPurchase && medicines.length === 0}
               >
                 <Plus size={14} /> Add Item
               </button>
             </div>
 
             <div className="invoice-items">
-              {medicines.length === 0 ? (
+              {!formIsPurchase && medicines.length === 0 ? (
                 <div className="empty-state">
                   No active medicines in inventory. Add medicines first.
                 </div>
@@ -731,28 +745,47 @@ export default function Invoices() {
                     <div className="invoice-item-row invoice-item-row-top">
                       <div className="input-group">
                         <label>Medicine *</label>
-                        <select
-                          value={item.medicine}
-                          onChange={(e) =>
-                            handleItemChange(index, "medicine", e.target.value)
-                          }
-                          className={fieldClass(
-                            formErrors,
-                            `items.${index}.medicine`,
-                          )}
-                        >
-                          <option value="">Select medicine</option>
-                          {medicines.map((m) => (
-                            <option key={m._id} value={m._id}>
-                              {m.name} (
-                              {formIsPurchase ? "Rate" : "PTR"} ₹
-                              {getMedicineDefaultRate(m, formInvoiceType)})
-                              {!formIsPurchase
-                                ? ` — Stock ${m.quantity ?? 0}`
-                                : ""}
+                        <div className="medicine-select-row">
+                          <select
+                            value={item.medicine}
+                            onChange={(e) =>
+                              handleItemChange(
+                                index,
+                                "medicine",
+                                e.target.value,
+                              )
+                            }
+                            className={fieldClass(
+                              formErrors,
+                              `items.${index}.medicine`,
+                            )}
+                          >
+                            <option value="">
+                              {medicines.length === 0
+                                ? "No medicines yet — add new"
+                                : "Select medicine"}
                             </option>
-                          ))}
-                        </select>
+                            {medicines.map((m) => (
+                              <option key={m._id} value={m._id}>
+                                {m.name} (
+                                {formIsPurchase ? "Rate" : "PTR"} ₹
+                                {getMedicineDefaultRate(m, formInvoiceType)})
+                                {!formIsPurchase
+                                  ? ` — Stock ${m.quantity ?? 0}`
+                                  : ""}
+                              </option>
+                            ))}
+                          </select>
+                          {formIsPurchase ? (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm medicine-add-btn"
+                              onClick={() => setNewMedicineLineIndex(index)}
+                            >
+                              <Plus size={14} /> New
+                            </button>
+                          ) : null}
+                        </div>
                         {!formIsPurchase &&
                         item.medicine &&
                         form.status !== "cancelled" ? (
@@ -910,6 +943,12 @@ export default function Invoices() {
         <InvoicePreviewModal
           invoice={previewInvoice}
           onClose={() => setPreviewInvoice(null)}
+        />
+      )}
+      {newMedicineLineIndex != null && (
+        <AddMedicineModal
+          onClose={() => setNewMedicineLineIndex(null)}
+          onCreated={handleMedicineCreated}
         />
       )}
     </>

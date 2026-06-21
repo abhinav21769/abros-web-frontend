@@ -998,6 +998,28 @@ tbody tr:last-child td {
   grid-column: 1 / -1;
 }
 
+.medicine-select-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.medicine-select-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.medicine-add-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.form-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .invoice-items-header {
   display: flex;
   justify-content: space-between;
