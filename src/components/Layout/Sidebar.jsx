@@ -1,18 +1,39 @@
-import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FileText, Package, Users, X, LogOut } from "lucide-react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  FileText,
+  Package,
+  Users,
+  X,
+  LogOut,
+  ShoppingCart,
+  BookOpen,
+} from "lucide-react";
 import BrandLogo from "../BrandLogo";
 import { useAuth } from "../../context/AuthContext";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/invoices", label: "Invoices", icon: FileText },
+  { to: "/invoices", label: "Sales", icon: FileText, invoiceTab: "sale" },
   { to: "/inventory", label: "Inventory", icon: Package },
+  {
+    to: "/invoices",
+    label: "Purchases",
+    icon: ShoppingCart,
+    invoiceTab: "purchase",
+  },
+  { to: "/ledger", label: "Ledger", icon: BookOpen },
   { to: "/customers", label: "Customers", icon: Users },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const activeInvoiceTab =
+    new URLSearchParams(location.search).get("type") === "purchase"
+      ? "purchase"
+      : "sale";
 
   const handleLogout = () => {
     logout();
@@ -46,18 +67,32 @@ export default function Sidebar({ isOpen = false, onClose }) {
       </div>
 
       <nav className="sidebar-nav relative">
-        {navItems.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-            onClick={onClose}
-          >
-            <Icon size={18} strokeWidth={2} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+        {navItems.map(({ to, label, icon: Icon, end, invoiceTab }) => {
+          const linkTo =
+            invoiceTab === "purchase"
+              ? { pathname: to, search: "?type=purchase" }
+              : invoiceTab === "sale"
+                ? { pathname: to, search: "" }
+                : to;
+          const isActive = invoiceTab
+            ? location.pathname === to && activeInvoiceTab === invoiceTab
+            : undefined;
+
+          return (
+            <NavLink
+              key={label}
+              to={linkTo}
+              end={end}
+              className={({ isActive: navActive }) =>
+                `nav-link${(invoiceTab ? isActive : navActive) ? " active" : ""}`
+              }
+              onClick={onClose}
+            >
+              <Icon size={18} strokeWidth={2} />
+              <span>{label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="sidebar-footer relative">

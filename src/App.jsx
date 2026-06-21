@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
+import Ledger from "./pages/Ledger";
 
 export default function App() {
   return (
@@ -21,6 +22,11 @@ export default function App() {
                 <Route index element={<Dashboard />} />
                 <Route path="invoices" element={<Invoices />} />
                 <Route path="inventory" element={<Inventory />} />
+                <Route
+                  path="purchases"
+                  element={<Navigate to="/invoices?type=purchase" replace />}
+                />
+                <Route path="ledger" element={<Ledger />} />
                 <Route path="customers" element={<Customers />} />
               </Route>
             </Route>

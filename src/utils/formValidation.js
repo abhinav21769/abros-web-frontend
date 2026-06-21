@@ -1,3 +1,8 @@
+import {
+  getAvailableStockForLine,
+  getLineUnits,
+} from "./invoiceStock";
+
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const HSN_REGEX = /^\d{4,8}$/;
 const PHONE_REGEX = /^[6-9]\d{9}$/;
@@ -154,7 +159,8 @@ export function validateMedicineForm(form) {
   return errors;
 }
 
-export function validateInvoiceForm(form) {
+export function validateInvoiceForm(form, options = {}) {
+  const { medicines = [], editingInvoice, invoiceType = "sale" } = options;
   const errors = {};
 
   const invoiceNumberError = required(form.invoiceNumber, "Invoice number");
@@ -163,7 +169,35 @@ export function validateInvoiceForm(form) {
   const dateError = required(form.invoiceDate, "Invoice date");
   if (dateError) errors.invoiceDate = dateError;
 
-  if (!form.customer) errors.customer = "Customer is required.";
+  if (invoiceType === "purchase") {
+    const supplierError = required(form.supplier, "Supplier name");
+    if (supplierError) errors.supplier = supplierError;
+
+    const contactError = required(form.supplierContact, "Phone number");
+    if (contactError) {
+      errors.supplierContact = contactError;
+    } else {
+      const phoneError = optionalPattern(
+        form.supplierContact,
+        PHONE_REGEX,
+        "Phone must be a valid 10-digit mobile number.",
+      );
+      if (phoneError) errors.supplierContact = phoneError;
+    }
+
+    if (form.supplierDlNo?.trim() && form.supplierDlNo.trim().length < 3) {
+      errors.supplierDlNo = "D.L. number must be at least 3 characters.";
+    }
+
+    const gstinFormatError = optionalPattern(
+      form.supplierGstin,
+      GSTIN_REGEX,
+      "GSTIN must be a valid 15-character GST number.",
+    );
+    if (gstinFormatError) errors.supplierGstin = gstinFormatError;
+  } else if (!form.customer) {
+    errors.customer = "Customer is required.";
+  }
 
   if (!form.items?.length) {
     errors.items = "Add at least one line item.";
@@ -194,6 +228,61 @@ export function validateInvoiceForm(form) {
       "HSN must be 4 to 8 digits.",
     );
     if (hsnError) errors[`items.${index}.hsn`] = hsnError;
+  });
+
+  if (
+    invoiceType === "sale" &&
+    form.status !== "cancelled" &&
+    medicines.length &&
+    form.items?.length
+  ) {
+    form.items.forEach((item, index) => {
+      if (!item.medicine) return;
+
+      const available = getAvailableStockForLine({
+        formItems: form.items,
+        medicines,
+        lineIndex: index,
+        editingInvoice,
+        formStatus: form.status,
+      });
+
+      if (available == null) return;
+
+      const requested = getLineUnits(item);
+      if (requested > available) {
+        errors[`items.${index}.quantity`] =
+          `Only ${available} unit(s) available in stock.`;
+      }
+    });
+  }
+
+  return errors;
+}
+
+export function validatePurchaseForm(form) {
+  const errors = {};
+
+  const purchaseNumberError = required(form.purchaseNumber, "Purchase number");
+  if (purchaseNumberError) errors.purchaseNumber = purchaseNumberError;
+
+  const dateError = required(form.purchaseDate, "Purchase date");
+  if (dateError) errors.purchaseDate = dateError;
+
+  if (!form.items?.length) {
+    errors.items = "Add at least one line item.";
+  }
+
+  form.items?.forEach((item, index) => {
+    if (!item.medicine) {
+      errors[`items.${index}.medicine`] = "Medicine is required.";
+    }
+
+    const qtyError = integerAtLeast(item.quantity, "Quantity", 1);
+    if (qtyError) errors[`items.${index}.quantity`] = qtyError;
+
+    const rateError = positiveNumber(item.rate, "Rate");
+    if (rateError) errors[`items.${index}.rate`] = rateError;
   });
 
   return errors;

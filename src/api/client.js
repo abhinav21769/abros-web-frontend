@@ -95,9 +95,30 @@ export const invoicesApi = {
     request(`/api/invoices/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (id) => request(`/api/invoices/${id}`, { method: "DELETE" }),
   stats: () => request("/api/invoices/stats"),
-  generateNumber: () => request("/api/invoices/generate-number"),
+  generateNumber: (invoiceType = "sale") =>
+    request(
+      `/api/invoices/generate-number?invoiceType=${encodeURIComponent(invoiceType)}`,
+    ),
 };
 
 export const dashboardApi = {
   stats: (days = 30) => request(`/api/dashboard/stats?days=${days}`),
+};
+
+export const purchasesApi = {
+  list: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/purchases?${query}`);
+  },
+  get: (id) => request(`/api/purchases/${id}`),
+  create: (body) =>
+    request("/api/purchases", { method: "POST", body: JSON.stringify(body) }),
+  generateNumber: () => request("/api/purchases/generate-number"),
+};
+
+export const ledgerApi = {
+  list: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/ledger?${query}`);
+  },
 };

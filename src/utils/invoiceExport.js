@@ -298,6 +298,16 @@ function drawInvoiceCopy(doc, invoice, options) {
     qrDataUrl,
   } = options;
   const customer = invoice.customer || {};
+  const isPurchase = invoice.invoiceType === "purchase";
+  const receiver = isPurchase
+    ? {
+        name: invoice.supplier,
+        address: invoice.supplierAddress || "",
+        contact: invoice.supplierContact || "",
+        dlNo: invoice.supplierDlNo || "",
+        gstin: invoice.supplierGstin || "",
+      }
+    : customer;
   const tax = calculateTaxSummary(invoice);
   let y = startY;
 
@@ -358,7 +368,7 @@ function drawInvoiceCopy(doc, invoice, options) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   const addressLines = doc.splitTextToSize(
-    displayOrDash(customer.address),
+    displayOrDash(receiver.address),
     valueMaxWidth,
   );
   const addressBlockHeight = Math.max(addressLines.length * 3.2, 3.2);
@@ -371,7 +381,7 @@ function drawInvoiceCopy(doc, invoice, options) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   doc.text(
-    "DETAILS OF RECEIVER / BILLED TO",
+    isPurchase ? "DETAILS OF SUPPLIER" : "DETAILS OF RECEIVER / BILLED TO",
     pageWidth / 2,
     receiverTop + 3.5,
     {
@@ -383,7 +393,7 @@ function drawInvoiceCopy(doc, invoice, options) {
   drawPdfLabelValue(
     doc,
     "Name & Address:",
-    displayOrDash(customer.name),
+    displayOrDash(receiver.name),
     margin + 2,
     textY,
     labelWidth,
@@ -399,7 +409,7 @@ function drawInvoiceCopy(doc, invoice, options) {
   drawPdfLabelValue(
     doc,
     "Phone No.:",
-    displayOrDash(customer.contact),
+    displayOrDash(receiver.contact),
     margin + 2,
     textY,
     labelWidth,
@@ -408,7 +418,7 @@ function drawInvoiceCopy(doc, invoice, options) {
   drawPdfLabelValue(
     doc,
     "D.L. No.:",
-    displayOrDash(customer.dlNo),
+    displayOrDash(receiver.dlNo),
     margin + 2,
     textY,
     labelWidth,
@@ -417,7 +427,7 @@ function drawInvoiceCopy(doc, invoice, options) {
   drawPdfLabelValue(
     doc,
     "GSTIN:",
-    displayOrDash(customer.gstin),
+    displayOrDash(receiver.gstin),
     margin + 2,
     textY,
     labelWidth,
@@ -476,12 +486,11 @@ function drawInvoiceCopy(doc, invoice, options) {
   const qrSize = 14;
   const bankTextHeight = 12;
   const qrBlockHeight = qrSize + 3;
-  const bankSectionHeight = Math.max(
-    bankTextHeight,
-    qrDataUrl ? qrBlockHeight : 0,
-  );
+  const bankSectionHeight = isPurchase
+    ? 0
+    : Math.max(bankTextHeight, qrDataUrl ? qrBlockHeight : 0);
   const wordsHeight = 7;
-  const bankTopGap = 2;
+  const bankTopGap = isPurchase ? 0 : 2;
   const signatureTop = maxEndY - 9;
 
   if (blockY + wordsHeight <= signatureTop - bankSectionHeight - bankTopGap) {
@@ -496,7 +505,7 @@ function drawInvoiceCopy(doc, invoice, options) {
     blockY += wordsHeight;
   }
 
-  if (blockY + bankTopGap + bankSectionHeight <= signatureTop) {
+  if (!isPurchase && blockY + bankTopGap + bankSectionHeight <= signatureTop) {
     blockY += bankTopGap;
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
@@ -523,16 +532,18 @@ function drawInvoiceCopy(doc, invoice, options) {
     blockY += bankSectionHeight;
   }
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(6.5);
-  doc.text("Terms & Conditions", margin + 2, signatureTop + 2);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6);
-  TERMS.forEach((term, index) => {
-    doc.text(term, margin + 2, signatureTop + 5 + index * 3.2, {
-      maxWidth: contentWidth * 0.52,
+  if (!isPurchase) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.text("Terms & Conditions", margin + 2, signatureTop + 2);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    TERMS.forEach((term, index) => {
+      doc.text(term, margin + 2, signatureTop + 5 + index * 3.2, {
+        maxWidth: contentWidth * 0.52,
+      });
     });
-  });
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
@@ -556,9 +567,14 @@ export async function renderInvoicePdf(invoice) {
   const cutY = pageHeight / 2;
   const copyGap = 2;
   const tax = calculateTaxSummary(invoice);
+  const isPurchase = invoice.invoiceType === "purchase";
   let qrDataUrl = null;
 
-  if (isPaymentConfigured() && invoice.status !== "cancelled") {
+  if (
+    !isPurchase &&
+    isPaymentConfigured() &&
+    invoice.status !== "cancelled"
+  ) {
     try {
       qrDataUrl = await generateUpiQrDataUrl({
         amount: tax.grandTotal,
@@ -657,13 +673,16 @@ export async function printInvoicePdf(invoice) {
 }
 
 function buildInvoiceShareText(invoice) {
-  const customerName = invoice.customer?.name || "Customer";
+  const partyName =
+    invoice.invoiceType === "purchase"
+      ? invoice.supplier || "Supplier"
+      : invoice.customer?.name || "Customer";
   const total = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
   }).format(Number(invoice.total) || 0);
 
-  return `Invoice ${invoice.invoiceNumber} for ${customerName} — ${total}`;
+  return `Invoice ${invoice.invoiceNumber} for ${partyName} — ${total}`;
 }
 
 export async function shareInvoicePdf(invoice) {
