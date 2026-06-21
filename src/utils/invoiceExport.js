@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
+  ensurePdfBlob,
   isMobileBrowser,
   openPdfBlobInNewTab,
   savePdfBlob,
@@ -509,7 +510,7 @@ export async function renderInvoicePdf(invoice) {
 
 export async function generateInvoicePdfBlob(invoice) {
   const doc = await renderInvoicePdf(invoice);
-  return doc.output("blob");
+  return ensurePdfBlob(doc.output("blob"));
 }
 
 export async function downloadInvoicePdf(invoice) {

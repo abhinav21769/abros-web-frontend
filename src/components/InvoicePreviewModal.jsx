@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, ExternalLink } from "lucide-react";
 import Modal from "./ui/Modal";
 import LottieLoader from "./ui/LottieLoader";
@@ -7,7 +7,12 @@ import {
   downloadInvoicePdf,
   generateInvoicePdfBlob,
 } from "../utils/invoiceExport";
-import { isMobileBrowser, openPdfBlobInNewTab } from "../utils/pdfMobile";
+import {
+  createPdfObjectUrl,
+  isMobileBrowser,
+  openPdfBlobInNewTab,
+  revokePdfObjectUrl,
+} from "../utils/pdfMobile";
 
 export default function InvoicePreviewModal({ invoice, onClose }) {
   const [previewUrl, setPreviewUrl] = useState("");
@@ -15,40 +20,60 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [fullInvoice, setFullInvoice] = useState(null);
+  const [embedFailed, setEmbedFailed] = useState(false);
+  const previewUrlRef = useRef("");
   const mobile = isMobileBrowser();
+
+  const revokeCurrentUrl = () => {
+    revokePdfObjectUrl(previewUrlRef.current);
+    previewUrlRef.current = "";
+  };
+
+  useEffect(
+    () => () => {
+      revokeCurrentUrl();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!invoice?._id) return undefined;
 
     let cancelled = false;
-    let objectUrl = "";
 
     setLoading(true);
     setError("");
+    setEmbedFailed(false);
     setPreviewUrl("");
     setPdfBlob(null);
+    revokeCurrentUrl();
 
-    invoicesApi
-      .get(invoice._id)
-      .then(async (res) => {
+    (async () => {
+      try {
+        const res = await invoicesApi.get(invoice._id);
         if (cancelled) return;
-        setFullInvoice(res.data);
-        const blob = await generateInvoicePdfBlob(res.data);
+
+        const invoiceData = res.data;
+        setFullInvoice(invoiceData);
+
+        const blob = await generateInvoicePdfBlob(invoiceData);
         if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
+
+        const url = createPdfObjectUrl(blob);
+        previewUrlRef.current = url;
         setPdfBlob(blob);
-        setPreviewUrl(objectUrl);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
+        setPreviewUrl(url);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || "Could not generate preview.");
+        }
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [invoice?._id]);
 
@@ -74,6 +99,8 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
 
   if (!invoice) return null;
 
+  const showInlinePreview = previewUrl && !embedFailed;
+
   return (
     <Modal
       title={`Preview — ${invoice.invoiceNumber}`}
@@ -84,15 +111,13 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
-          {mobile ? (
-            <button
-              className="btn btn-primary"
-              onClick={handleOpenPdf}
-              disabled={loading || Boolean(error)}
-            >
-              <ExternalLink size={16} /> Open PDF
-            </button>
-          ) : null}
+          <button
+            className="btn btn-secondary"
+            onClick={handleOpenPdf}
+            disabled={loading || Boolean(error)}
+          >
+            <ExternalLink size={16} /> Open PDF
+          </button>
           <button
             className="btn btn-primary"
             onClick={handleDownload}
@@ -103,16 +128,33 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
         </>
       }
     >
-      <div className="invoice-preview-body">
+      <div
+        className={`invoice-preview-body${loading ? " invoice-preview-body--loading" : ""}`}
+      >
         {loading ? (
           <LottieLoader message="Generating preview..." compact />
         ) : error ? (
           <div className="invoice-preview-error">{error}</div>
-        ) : mobile ? (
+        ) : showInlinePreview ? (
+          <object
+            data={previewUrl}
+            type="application/pdf"
+            className="invoice-preview-frame"
+            aria-label={`Invoice ${invoice.invoiceNumber} preview`}
+          >
+            <iframe
+              title={`Invoice ${invoice.invoiceNumber} preview`}
+              src={previewUrl}
+              className="invoice-preview-frame"
+              onError={() => setEmbedFailed(true)}
+            />
+          </object>
+        ) : (
           <div className="invoice-preview-mobile">
             <p>
-              PDF preview is limited in mobile browsers. Open the invoice PDF to
-              view, print, or share it from your phone.
+              {mobile
+                ? "Your browser could not show the PDF inline. Open it in a new tab to view, print, or share."
+                : "Could not embed the PDF preview. Open it in a new tab instead."}
             </p>
             <button
               type="button"
@@ -122,12 +164,6 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
               <ExternalLink size={16} /> Open PDF
             </button>
           </div>
-        ) : (
-          <iframe
-            title={`Invoice ${invoice.invoiceNumber} preview`}
-            src={previewUrl}
-            className="invoice-preview-frame"
-          />
         )}
       </div>
     </Modal>

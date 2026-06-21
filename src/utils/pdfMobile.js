@@ -3,8 +3,23 @@ export function isMobileBrowser() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+export function ensurePdfBlob(blob) {
+  if (blob instanceof Blob && blob.type === "application/pdf") {
+    return blob;
+  }
+  return new Blob([blob], { type: "application/pdf" });
+}
+
+export function createPdfObjectUrl(blob) {
+  return URL.createObjectURL(ensurePdfBlob(blob));
+}
+
+export function revokePdfObjectUrl(url) {
+  if (url) URL.revokeObjectURL(url);
+}
+
 export function openPdfBlobInNewTab(blob) {
-  const url = URL.createObjectURL(blob);
+  const url = createPdfObjectUrl(blob);
   const opened = window.open(url, "_blank", "noopener,noreferrer");
 
   if (!opened) {
@@ -21,7 +36,7 @@ export function openPdfBlobInNewTab(blob) {
 }
 
 export function savePdfBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
+  const url = createPdfObjectUrl(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;

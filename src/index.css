@@ -738,15 +738,21 @@ tbody tr:last-child td {
 
 .invoice-preview-body {
   min-height: 72vh;
+  height: 72vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   background: #525659;
 }
 
+.invoice-preview-body--loading {
+  align-items: center;
+  justify-content: center;
+}
+
 .invoice-preview-frame {
+  flex: 1;
   width: 100%;
-  height: 72vh;
+  min-height: 0;
   border: none;
   background: #fff;
 }
