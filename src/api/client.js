@@ -1,19 +1,41 @@
 const PRODUCTION_API_URL = "https://abros-healthcare.onrender.com";
+const AUTH_TOKEN_KEY = "abros_auth_token";
 
 const API_BASE =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? PRODUCTION_API_URL : "http://localhost:3000");
 
+export function getAuthToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setAuthToken(token) {
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
 async function request(path, options = {}) {
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
     ...options,
   });
 
   const data = await res.json().catch(() => ({}));
+
+  if (res.status === 401 && !path.startsWith("/api/auth/login")) {
+    clearAuthToken();
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
+  }
 
   if (!res.ok) {
     const errorMessage =
@@ -23,6 +45,15 @@ async function request(path, options = {}) {
 
   return data;
 }
+
+export const authApi = {
+  login: (body) =>
+    request("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  me: () => request("/api/auth/me"),
+};
 
 export const medicinesApi = {
   list: (params = {}) => {

@@ -20,6 +20,8 @@ npm run dev
 
 Production builds use `https://abros-healthcare.onrender.com` automatically.
 
+The app requires login. Users are created via the backend CLI or admin API — there is no public sign-up page.
+
 ## Deploy
 
 ```bash

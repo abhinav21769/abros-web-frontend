@@ -1,6 +1,7 @@
-import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Package, Users, X } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { LayoutDashboard, FileText, Package, Users, X, LogOut } from "lucide-react";
 import BrandLogo from "../BrandLogo";
+import { useAuth } from "../../context/AuthContext";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -10,6 +11,15 @@ const navItems = [
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    onClose?.();
+    navigate("/login");
+  };
+
   return (
     <aside className={`sidebar${isOpen ? " sidebar-open" : ""}`}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-48 overflow-hidden">
@@ -50,7 +60,17 @@ export default function Sidebar({ isOpen = false, onClose }) {
         ))}
       </nav>
 
-      <div className="sidebar-footer relative">v1.0.1</div>
+      <div className="sidebar-footer relative">
+        <div className="sidebar-user">{user?.name || user?.username}</div>
+        <button
+          type="button"
+          className="sidebar-logout-btn"
+          onClick={handleLogout}
+        >
+          <LogOut size={16} />
+          Sign Out
+        </button>
+      </div>
     </aside>
   );
 }
