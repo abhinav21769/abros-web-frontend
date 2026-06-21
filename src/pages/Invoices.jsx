@@ -28,6 +28,7 @@ import { isPaymentConfigured } from "../config/payment";
 const emptyItem = {
   medicine: "",
   medicineName: "",
+  hsn: "",
   quantity: "1",
   free: "0",
   rate: "",
@@ -136,6 +137,7 @@ export default function Invoices() {
         items: item.items.map((i) => ({
           medicine: i.medicine?._id || i.medicine || "",
           medicineName: i.medicineName,
+          hsn: i.hsn || i.medicine?.hsn || "",
           quantity: String(i.quantity),
           free: String(i.free ?? 0),
           rate: String(i.rate),
@@ -161,6 +163,7 @@ export default function Invoices() {
         if (med) {
           items[index].medicineName = med.name;
           items[index].rate = String(med.rate ?? med.mrp);
+          items[index].hsn = med.hsn || "";
         }
       }
 
@@ -203,6 +206,7 @@ export default function Invoices() {
       items: form.items.map((item) => ({
         medicine: item.medicine || undefined,
         medicineName: item.medicineName,
+        hsn: item.hsn || undefined,
         quantity: Number(item.quantity),
         free: Number(item.free) || 0,
         rate: Number(item.rate),
@@ -532,6 +536,16 @@ export default function Invoices() {
                         handleItemChange(index, "medicineName", e.target.value)
                       }
                       required
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label>HSN</label>
+                    <input
+                      value={item.hsn}
+                      onChange={(e) =>
+                        handleItemChange(index, "hsn", e.target.value)
+                      }
+                      placeholder="e.g. 3004"
                     />
                   </div>
                   <div className="input-group">

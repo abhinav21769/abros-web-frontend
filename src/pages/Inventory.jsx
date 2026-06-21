@@ -16,6 +16,7 @@ const emptyForm = {
   quantity: "",
   batchNumber: "",
   manufacturer: "",
+  hsn: "",
   description: "",
 };
 
@@ -99,6 +100,7 @@ export default function Inventory() {
       quantity: String(item.quantity),
       batchNumber: item.batchNumber || "",
       manufacturer: item.manufacturer || "",
+      hsn: item.hsn || "",
       description: item.description || "",
     });
     setModalOpen(true);
@@ -122,6 +124,7 @@ export default function Inventory() {
       quantity: Number(form.quantity) || 0,
       batchNumber: form.batchNumber || undefined,
       manufacturer: form.manufacturer || undefined,
+      hsn: form.hsn || undefined,
       description: form.description || undefined,
     };
 
@@ -187,6 +190,7 @@ export default function Inventory() {
                   <tr>
                     <th>Name</th>
                     <th>Packaging</th>
+                    <th>HSN</th>
                     <th>Batch</th>
                     <th>Expiry</th>
                     <th>Qty</th>
@@ -214,6 +218,7 @@ export default function Inventory() {
                         )}
                       </td>
                       <td>{item.packagingType}</td>
+                      <td>{item.hsn || "—"}</td>
                       <td>{item.batchNumber || "—"}</td>
                       <td>{formatDate(item.expiryDate)}</td>
                       <td>{item.quantity}</td>
@@ -388,6 +393,15 @@ export default function Inventory() {
                 name="manufacturer"
                 value={form.manufacturer}
                 onChange={handleChange}
+              />
+            </div>
+            <div className="input-group">
+              <label>HSN</label>
+              <input
+                name="hsn"
+                value={form.hsn}
+                onChange={handleChange}
+                placeholder="e.g. 3004"
               />
             </div>
             <div className="input-group full-width">

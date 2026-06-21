@@ -1,21 +1,15 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import brandLogo from "../assets/logo.jpg";
 import { formatCalendarDate, toExcelSerialDate } from "./dateUtils";
 import { isPaymentConfigured } from "../config/payment";
-import {
-  generateUpiQrDataUrl,
-  getInvoicePaymentNote,
-} from "./upiPayment";
+import { generateUpiQrDataUrl, getInvoicePaymentNote } from "./upiPayment";
 
 const SELLER = {
   name: "ABROS HEALTHCARE",
-  rightTitle: "MEDICAL STORE",
   address: "Shop-2, Shivpuri Colony, Sultanpur, Ambala City, Haryana",
-  phone: "PHONE NO- ",
   pincode: "134003",
-  gstin: "",
+  gstin: "06AFUPJ3372H1Z5",
   dlNo: "DL NO.",
   dlValidUpto: "UPTO DT",
   licNo: "LIC NO",
@@ -34,14 +28,14 @@ const TERMS = [
 ];
 
 const ITEM_HEADERS = [
-  "COMP",
+  "MFG",
   "Qty.",
   "FREE",
   "Pack",
   "PRODUCT",
+  "HSN",
   "BATCH",
   "EXP",
-  "HSN",
   "MRP",
   "RATE",
   "DIS",
@@ -152,19 +146,24 @@ function getMedicine(item) {
     : null;
 }
 
+function getLineItemHsn(item) {
+  const med = getMedicine(item);
+  return item.hsn || med?.hsn || "";
+}
+
 function buildLineItemRow(item) {
   const med = getMedicine(item);
   const amount = Number(item.amount ?? item.quantity * item.rate);
 
   return [
-    0,
+    med?.manufacturer || "",
     Number(item.quantity) || 0,
     Number(item.free) || 0,
     med?.packagingType || "",
     item.medicineName || med?.name || "",
+    getLineItemHsn(item),
     med?.batchNumber || "",
     med?.expiryDate ? toExcelSerialDate(med.expiryDate) : "",
-    3004,
     Number(med?.mrp ?? item.rate) || 0,
     Number(item.rate) || 0,
     0,
@@ -186,15 +185,15 @@ function buildBillHeaderRows(invoice) {
       "",
       getPaymentTypeLabel(invoice),
       "",
-      "MEDICAL",
+      customer.name || "",
       "",
       "",
       "",
-      "STORE",
+      "",
       "",
       "",
     ],
-    ["", "", "", "", "", "", "", customer.name || "", "", "", "", "", ""],
+    ["", "", "", "", "", "", "", customer.address || "", "", "", "", "", ""],
     [
       SELLER.address,
       "",
@@ -226,7 +225,7 @@ function buildBillHeaderRows(invoice) {
       "",
     ],
     [
-      SELLER.phone,
+      SELLER.licNo,
       "",
       "",
       "",
@@ -365,14 +364,14 @@ function buildBillSheetData(invoice) {
 
 function applyBillSheetLayout(worksheet) {
   worksheet["!cols"] = [
-    { wch: 6 },
+    { wch: 14 },
     { wch: 6 },
     { wch: 6 },
     { wch: 10 },
     { wch: 28 },
-    { wch: 10 },
-    { wch: 10 },
     { wch: 8 },
+    { wch: 10 },
+    { wch: 10 },
     { wch: 8 },
     { wch: 8 },
     { wch: 6 },
@@ -414,33 +413,52 @@ export async function downloadInvoicePdf(invoice) {
   const customer = invoice.customer || {};
   let y = 10;
 
-  doc.addImage(brandLogo, "JPEG", margin, y - 1, 14, 14);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(SELLER.name, margin + 16, y + 4);
-  doc.text("MEDICAL STORE", pageWidth - margin, y + 4, { align: "right" });
+  doc.text(SELLER.name, margin, y);
+  doc.text(customer.name || "", pageWidth - margin, y, { align: "right" });
 
-  y += 10;
+  y += 6;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.text(SELLER.address, margin, y);
-  doc.text(customer.name || "", pageWidth - margin, y, { align: "right" });
-
-  y += 5;
-  doc.text(`${SELLER.phone}${customer.contact || ""}`, margin, y);
   doc.text(customer.address || "", pageWidth - margin, y, { align: "right" });
 
   y += 5;
+  doc.text(SELLER.pincode, margin, y);
+  doc.text(
+    customer.contact ? `Phone No: ${customer.contact}` : "",
+    pageWidth - margin,
+    y,
+    { align: "right" },
+  );
+
+  y += 5;
   doc.text(`GSTIN NO: ${SELLER.gstin}`, margin, y);
-  doc.text(`GSTIN: ${customer.gstin || ""}`, pageWidth / 2, y);
-  doc.text(`DL NO: ${customer.dlNo || ""}`, pageWidth - margin, y, {
-    align: "right",
-  });
+  doc.text(
+    customer.gstin ? `GSTIN: ${customer.gstin}` : "",
+    pageWidth - margin,
+    y,
+    { align: "right" },
+  );
+
+  y += 5;
+  doc.text(SELLER.licNo, margin, y);
+  doc.text(
+    customer.dlNo ? `DL NO: ${customer.dlNo}` : "DL NO:",
+    pageWidth - margin,
+    y,
+    { align: "right" },
+  );
 
   y += 6;
   doc.setFont("helvetica", "bold");
   doc.text(`Invoice No: ${invoice.invoiceNumber}`, margin, y);
-  doc.text(`Date: ${formatCalendarDate(invoice.invoiceDate)}`, pageWidth / 2, y);
+  doc.text(
+    `Date: ${formatCalendarDate(invoice.invoiceDate)}`,
+    pageWidth / 2,
+    y,
+  );
   doc.text(getPaymentTypeLabel(invoice), pageWidth - margin, y, {
     align: "right",
   });
@@ -450,7 +468,7 @@ export async function downloadInvoicePdf(invoice) {
   const tableBody = invoice.items.map((item) => {
     const row = buildLineItemRow(item);
     return row.map((cell, index) => {
-      if (index === 6 && cell)
+      if (index === 7 && cell)
         return formatCalendarDate(getMedicine(item)?.expiryDate);
       if ([8, 9, 11, 12, 13].includes(index) && cell !== "")
         return formatAmount(cell);
@@ -470,6 +488,7 @@ export async function downloadInvoicePdf(invoice) {
       fontStyle: "bold",
     },
     columnStyles: {
+      0: { cellWidth: 18 },
       4: { cellWidth: 42 },
       8: { halign: "right" },
       9: { halign: "right" },
@@ -490,35 +509,58 @@ export async function downloadInvoicePdf(invoice) {
   doc.text(amountInWords(invoice.total), margin, y);
 
   y += 8;
-  doc.setFont("helvetica", "bold");
-  doc.text("Terms & Conditions", margin, y);
-  doc.text("Receiver", pageWidth - 50, y);
-  doc.text(SELLER.forLabel, pageWidth - margin, y, { align: "right" });
-
-  doc.setFont("helvetica", "normal");
-  TERMS.forEach((term, index) => {
-    doc.text(term, margin, y + 5 + index * 4);
-  });
+  const footerStartY = y;
+  const qrSize = 28;
+  let qrDataUrl = null;
 
   if (isPaymentConfigured() && invoice.status !== "cancelled") {
     try {
-      const qrDataUrl = await generateUpiQrDataUrl({
+      qrDataUrl = await generateUpiQrDataUrl({
         amount: invoice.total,
         note: getInvoicePaymentNote(invoice),
-      });
-      const qrSize = 28;
-      const qrX = pageWidth - margin - qrSize;
-      const qrY = y - 2;
-
-      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.text("Scan to Pay", qrX + qrSize / 2, qrY + qrSize + 4, {
-        align: "center",
       });
     } catch {
       // Skip QR on PDF if generation fails.
     }
+  }
+
+  const signatureX = qrDataUrl
+    ? pageWidth - margin - qrSize - 10
+    : pageWidth - margin;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("Terms & Conditions", margin, y);
+
+  if (!qrDataUrl) {
+    doc.text("Receiver", pageWidth - 50, y);
+    doc.text(SELLER.forLabel, pageWidth - margin, y, { align: "right" });
+  }
+
+  doc.setFont("helvetica", "normal");
+  TERMS.forEach((term, index) => {
+    doc.text(term, margin, y + 5 + index * 4, {
+      maxWidth: qrDataUrl ? signatureX - margin - 6 : undefined,
+    });
+  });
+
+  const termsEndY = y + 5 + TERMS.length * 4;
+
+  if (qrDataUrl) {
+    const qrX = pageWidth - margin - qrSize;
+    const qrY = footerStartY;
+
+    doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("Scan to Pay", qrX + qrSize / 2, qrY + qrSize + 4, {
+      align: "center",
+    });
+
+    const signatureY = Math.max(termsEndY + 2, qrY + qrSize + 12);
+    doc.setFontSize(9);
+    doc.text("Receiver", signatureX, signatureY, { align: "right" });
+    doc.text(SELLER.forLabel, signatureX, signatureY + 5, { align: "right" });
   }
 
   doc.save(`${sanitizeFilename(invoice.invoiceNumber)}.pdf`);
