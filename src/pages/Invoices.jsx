@@ -5,20 +5,22 @@ import {
   Trash2,
   X,
   Download,
-  FileSpreadsheet,
-  QrCode,
+  Eye,
+  Printer,
+  Share2,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
 import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
-import PaymentQrModal from "../components/PaymentQrModal";
+import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import {
   downloadInvoicePdf,
-  downloadInvoiceExcel,
+  printInvoicePdf,
+  shareInvoicePdf,
 } from "../utils/invoiceExport";
 import {
   formatCalendarDate,
@@ -26,7 +28,6 @@ import {
   toDateInputValue,
   toInvoiceDatePayload,
 } from "../utils/dateUtils";
-import { isPaymentConfigured } from "../config/payment";
 
 import { calculateInvoiceTax, GST_RATE_OPTIONS } from "../utils/invoiceTax";
 import {
@@ -91,8 +92,7 @@ export default function Invoices() {
   const [form, setForm] = useState(emptyForm);
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [paymentInvoice, setPaymentInvoice] = useState(null);
-  const paymentEnabled = isPaymentConfigured();
+  const [previewInvoice, setPreviewInvoice] = useState(null);
 
   const fetchItems = useCallback(() => {
     setLoading(true);
@@ -285,21 +285,34 @@ export default function Invoices() {
     }
   };
 
-  const handleDownloadPdf = async (invoice) => {
+  const handlePrint = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
-      await downloadInvoicePdf(res.data);
-      toast.success("Invoice downloaded as PDF.");
+      await printInvoicePdf(res.data);
     } catch (err) {
       toast.error(err.message);
     }
   };
 
-  const handleDownloadExcel = async (invoice) => {
+  const handleShare = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
-      downloadInvoiceExcel(res.data);
-      toast.success("Invoice downloaded as Excel.");
+      const result = await shareInvoicePdf(res.data);
+      if (result.method === "share") {
+        toast.success("Invoice shared.");
+      } else if (result.method === "download") {
+        toast.success("Sharing not supported here — PDF downloaded instead.");
+      }
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleDownloadPdf = async (invoice) => {
+    try {
+      const res = await invoicesApi.get(invoice._id);
+      await downloadInvoicePdf(res.data);
+      toast.success("Invoice downloaded as PDF.");
     } catch (err) {
       toast.error(err.message);
     }
@@ -366,16 +379,30 @@ export default function Invoices() {
                       <td>{statusBadge(item.status)}</td>
                       <td>
                         <div className="actions-cell">
-                          {paymentEnabled && item.status === "pending" && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => setPaymentInvoice(item)}
-                              aria-label="Pay via UPI"
-                              title="Pay via UPI"
-                            >
-                              <QrCode size={15} />
-                            </button>
-                          )}
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handlePrint(item)}
+                            aria-label="Print invoice"
+                            title="Print invoice"
+                          >
+                            <Printer size={15} />
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleShare(item)}
+                            aria-label="Share invoice"
+                            title="Share invoice"
+                          >
+                            <Share2 size={15} />
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setPreviewInvoice(item)}
+                            aria-label="Preview invoice"
+                            title="Preview invoice"
+                          >
+                            <Eye size={15} />
+                          </button>
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() => handleDownloadPdf(item)}
@@ -383,14 +410,6 @@ export default function Invoices() {
                             title="Download PDF"
                           >
                             <Download size={15} />
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleDownloadExcel(item)}
-                            aria-label="Download Excel"
-                            title="Download Excel"
-                          >
-                            <FileSpreadsheet size={15} />
                           </button>
                           <button
                             className="btn btn-ghost btn-sm"
@@ -673,10 +692,10 @@ export default function Invoices() {
           </form>
         </Modal>
       )}
-      {paymentInvoice && (
-        <PaymentQrModal
-          invoice={paymentInvoice}
-          onClose={() => setPaymentInvoice(null)}
+      {previewInvoice && (
+        <InvoicePreviewModal
+          invoice={previewInvoice}
+          onClose={() => setPreviewInvoice(null)}
         />
       )}
     </>

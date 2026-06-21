@@ -1,13 +1,12 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
-import { toExcelSerialDate } from "./dateUtils";
 import { isPaymentConfigured } from "../config/payment";
 import { generateUpiQrDataUrl, getInvoicePaymentNote } from "./upiPayment";
 import {
   calculateInvoiceTax,
   formatGstRate,
   getLineItemGstRate,
+  getLineTotalWithGst,
 } from "./invoiceTax";
 
 const SELLER = {
@@ -28,30 +27,11 @@ function getPaymentTypeLabel(invoice) {
   return invoice?.paymentType === "cash" ? "CASH" : "CREDIT";
 }
 
-const GST_SLABS = ["5.00", "12.00", "18.00", "28.00"];
-
 const TERMS = [
   "1. All disputes Subject to Ambala Jurisdiction only.",
   "2. Goods once sold will not taken back or Exchanged.",
   "3. Interest @ 18% p.a. will be charged, if bill is not paid within 15 days.",
   "4. E & O. E.",
-];
-
-const ITEM_HEADERS = [
-  "MFG",
-  "Qty.",
-  "",
-  "Pack",
-  "PRODUCT",
-  "HSN",
-  "BATCH",
-  "EXP",
-  "MRP",
-  "RATE",
-  "DIS",
-  "CGST",
-  "IGST",
-  "AMOUNT",
 ];
 
 function formatAmount(value) {
@@ -175,292 +155,6 @@ function formatLineItemQuantity(quantity, free) {
   return String(qty);
 }
 
-function buildLineItemRow(item) {
-  const med = getMedicine(item);
-  const amount = Number(item.amount ?? item.quantity * item.rate);
-
-  return [
-    med?.manufacturer || "",
-    formatLineItemQuantity(item.quantity, item.free),
-    "",
-    med?.packagingType || "",
-    item.medicineName || med?.name || "",
-    getLineItemHsn(item),
-    med?.batchNumber || "",
-    med?.expiryDate ? toExcelSerialDate(med.expiryDate) : "",
-    Number(med?.mrp ?? item.rate) || 0,
-    Number(item.rate) || 0,
-    0,
-    0,
-    0,
-    amount,
-  ];
-}
-
-function buildBillHeaderRows(invoice) {
-  const customer = invoice.customer || {};
-
-  return [
-    [
-      SELLER.name,
-      "",
-      "",
-      "",
-      "",
-      getPaymentTypeLabel(invoice),
-      "",
-      displayOrDash(customer.name),
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ],
-    [
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      displayOrDash(customer.address),
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ],
-    [
-      SELLER.addressLine,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "Phone No:",
-      displayOrDash(customer.contact),
-      "",
-      "",
-      "",
-      "",
-    ],
-    [
-      SELLER.pincode,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "GSTIN",
-      "",
-      "",
-      "",
-      displayOrDash(customer.gstin),
-      "",
-    ],
-    [
-      `Phone No: ${SELLER.phone}`,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "DL NO",
-      "",
-      "",
-      "",
-      displayOrDash(customer.dlNo),
-      "",
-    ],
-    [
-      `GSTIN NO: ${SELLER.gstin}`,
-      "",
-      "",
-      "",
-      "",
-      "GSTIN INVOICE",
-      "",
-      "Invoice No.   :                ",
-      "",
-      invoice.invoiceNumber,
-      "Date              :",
-      toExcelSerialDate(invoice.invoiceDate),
-      "",
-      "",
-    ],
-    [
-      `D.L NO: - ${SELLER.dlNumbers[0] || ""}`,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ],
-    [
-      SELLER.dlNumbers[1] || "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ],
-    ITEM_HEADERS,
-  ];
-}
-
-function buildBillFooterRows(invoice) {
-  const total = Number(invoice.total) || 0;
-
-  return [
-    [
-      "CLASS",
-      "TOTAL",
-      "",
-      "SCH",
-      "DISC",
-      "SGST",
-      "CGST",
-      "TOTAL",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ],
-    ...GST_SLABS.map((slab) => [
-      `GST ${slab}`,
-      0,
-      "",
-      0,
-      0,
-      0,
-      0,
-      0,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ]),
-    ["TOTAL", total, "", 0, 0, 0, 0, total, "", "", "", "", "", ""],
-    [amountInWords(total), "", "", "", "", "", "", "", "", "", "", "", "", ""],
-    [
-      "Terms & Conditions",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "Reciver",
-      "",
-      SELLER.forLabel,
-      "",
-      "",
-      "",
-      "",
-      "",
-    ],
-    ...TERMS.map((term) => [
-      term,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-    ]),
-  ];
-}
-
-function buildBillSheetData(invoice) {
-  const headerRows = buildBillHeaderRows(invoice);
-  const itemRows = invoice.items.map((item) => buildLineItemRow(item));
-  const minItemRows = 27;
-  const paddedItems = [
-    ...itemRows,
-    ...Array.from({ length: Math.max(0, minItemRows - itemRows.length) }, () =>
-      Array(ITEM_HEADERS.length).fill(""),
-    ),
-  ];
-
-  return [...headerRows, ...paddedItems, [""], ...buildBillFooterRows(invoice)];
-}
-
-function applyBillSheetLayout(worksheet) {
-  worksheet["!cols"] = [
-    { wch: 14 },
-    { wch: 6 },
-    { wch: 6 },
-    { wch: 10 },
-    { wch: 28 },
-    { wch: 8 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 8 },
-    { wch: 8 },
-    { wch: 6 },
-    { wch: 8 },
-    { wch: 8 },
-    { wch: 10 },
-  ];
-
-  const footerStart = 8 + 27 + 1;
-  worksheet["!merges"] = [
-    { s: { r: 0, c: 7 }, e: { r: 0, c: 10 } },
-    { s: { r: 2, c: 8 }, e: { r: 2, c: 12 } },
-    { s: { r: 5, c: 5 }, e: { r: 6, c: 6 } },
-    { s: { r: 35, c: 0 }, e: { r: 35, c: 13 } },
-    { s: { r: footerStart + 6, c: 0 }, e: { r: footerStart + 6, c: 13 } },
-    { s: { r: footerStart + 1, c: 1 }, e: { r: footerStart + 1, c: 2 } },
-    { s: { r: footerStart + 2, c: 1 }, e: { r: footerStart + 2, c: 2 } },
-    { s: { r: footerStart + 3, c: 1 }, e: { r: footerStart + 3, c: 2 } },
-    { s: { r: footerStart + 4, c: 1 }, e: { r: footerStart + 4, c: 2 } },
-    { s: { r: footerStart + 5, c: 1 }, e: { r: footerStart + 5, c: 2 } },
-    { s: { r: footerStart, c: 1 }, e: { r: footerStart, c: 2 } },
-  ];
-}
-
-export function downloadInvoiceExcel(invoice) {
-  const sheetData = buildBillSheetData(invoice);
-  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-  applyBillSheetLayout(worksheet);
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-  XLSX.writeFile(workbook, `${sanitizeFilename(invoice.invoiceNumber)}.xlsx`);
-}
-
 const PDF_ITEM_HEADERS = [
   "S. No.",
   "Name of Product",
@@ -500,7 +194,6 @@ function calculateTaxSummary(invoice) {
 function buildPdfTableRows(invoice) {
   return invoice.items.map((item, index) => {
     const med = getMedicine(item);
-    const amount = Number(item.amount ?? item.quantity * item.rate);
 
     return [
       String(index + 1),
@@ -514,7 +207,7 @@ function buildPdfTableRows(invoice) {
       formatAmount(item.rate),
       formatGstRate(getLineItemGstRate(item)),
       formatAmount(med?.mrp ?? item.rate),
-      formatAmount(amount),
+      formatAmount(getLineTotalWithGst(item)),
     ];
   });
 }
@@ -529,7 +222,7 @@ function drawPdfLabelValue(doc, label, value, x, y, labelWidth = 24) {
   });
 }
 
-export async function downloadInvoicePdf(invoice) {
+export async function renderInvoicePdf(invoice) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -641,7 +334,7 @@ export async function downloadInvoicePdf(invoice) {
     ),
   ];
 
-  const totalAmount = formatAmount(tax.subtotal);
+  const totalAmount = formatAmount(tax.grandTotal);
   paddedRows.push([
     "",
     "TOTAL",
@@ -806,5 +499,106 @@ export async function downloadInvoicePdf(invoice) {
     }
   }
 
+  return doc;
+}
+
+export async function generateInvoicePdfBlob(invoice) {
+  const doc = await renderInvoicePdf(invoice);
+  return doc.output("blob");
+}
+
+export async function downloadInvoicePdf(invoice) {
+  const doc = await renderInvoicePdf(invoice);
   doc.save(`${sanitizeFilename(invoice.invoiceNumber)}.pdf`);
+}
+
+export async function printInvoicePdf(invoice) {
+  const blob = await generateInvoicePdfBlob(invoice);
+  const url = URL.createObjectURL(blob);
+
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.src = url;
+
+    const cleanup = () => {
+      URL.revokeObjectURL(url);
+      iframe.remove();
+      window.removeEventListener("focus", handleFocus);
+    };
+
+    const handleFocus = () => {
+      window.setTimeout(cleanup, 500);
+      resolve();
+    };
+
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        window.addEventListener("focus", handleFocus);
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
+    };
+
+    iframe.onerror = () => {
+      cleanup();
+      reject(new Error("Could not open the invoice for printing."));
+    };
+
+    document.body.appendChild(iframe);
+  });
+}
+
+function buildInvoiceShareText(invoice) {
+  const customerName = invoice.customer?.name || "Customer";
+  const total = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  }).format(Number(invoice.total) || 0);
+
+  return `Invoice ${invoice.invoiceNumber} for ${customerName} — ${total}`;
+}
+
+export async function shareInvoicePdf(invoice) {
+  const blob = await generateInvoicePdfBlob(invoice);
+  const filename = `${sanitizeFilename(invoice.invoiceNumber)}.pdf`;
+  const file = new File([blob], filename, { type: "application/pdf" });
+  const text = buildInvoiceShareText(invoice);
+
+  if (navigator.share) {
+    const shareData = {
+      title: `Invoice ${invoice.invoiceNumber}`,
+      text,
+    };
+
+    if (navigator.canShare?.({ files: [file] })) {
+      shareData.files = [file];
+    }
+
+    try {
+      await navigator.share(shareData);
+      return { method: "share" };
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return { method: "cancelled" };
+      }
+      throw error;
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+  return { method: "download" };
 }

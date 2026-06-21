@@ -1,0 +1,94 @@
+import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
+import Modal from "./ui/Modal";
+import LottieLoader from "./ui/LottieLoader";
+import { invoicesApi } from "../api/client";
+import { downloadInvoicePdf, generateInvoicePdfBlob } from "../utils/invoiceExport";
+
+export default function InvoicePreviewModal({ invoice, onClose }) {
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [fullInvoice, setFullInvoice] = useState(null);
+
+  useEffect(() => {
+    if (!invoice?._id) return undefined;
+
+    let cancelled = false;
+    let objectUrl = "";
+
+    setLoading(true);
+    setError("");
+    setPreviewUrl("");
+
+    invoicesApi
+      .get(invoice._id)
+      .then(async (res) => {
+        if (cancelled) return;
+        setFullInvoice(res.data);
+        const blob = await generateInvoicePdfBlob(res.data);
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [invoice?._id]);
+
+  const handleDownload = async () => {
+    try {
+      const data =
+        fullInvoice || (await invoicesApi.get(invoice._id)).data;
+      await downloadInvoicePdf(data);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  if (!invoice) return null;
+
+  return (
+    <Modal
+      title={`Preview — ${invoice.invoiceNumber}`}
+      onClose={onClose}
+      preview
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onClose}>
+            Close
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleDownload}
+            disabled={loading || Boolean(error)}
+          >
+            <Download size={16} /> Download PDF
+          </button>
+        </>
+      }
+    >
+      <div className="invoice-preview-body">
+        {loading ? (
+          <LottieLoader message="Generating preview..." compact />
+        ) : error ? (
+          <div className="invoice-preview-error">{error}</div>
+        ) : (
+          <iframe
+            title={`Invoice ${invoice.invoiceNumber} preview`}
+            src={previewUrl}
+            className="invoice-preview-frame"
+          />
+        )}
+      </div>
+    </Modal>
+  );
+}

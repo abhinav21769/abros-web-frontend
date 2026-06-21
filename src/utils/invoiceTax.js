@@ -10,6 +10,22 @@ export function calculateLineAmount(quantity, rate) {
   return Math.round(Number(quantity || 0) * Number(rate || 0) * 100) / 100;
 }
 
+export function getLineTaxableAmount(item) {
+  const quantity = Number(item?.quantity) || 0;
+  const rate = Number(item?.rate) || 0;
+  if (item?.amount != null) return Number(item.amount);
+  return calculateLineAmount(quantity, rate);
+}
+
+export function getLineTotalWithGst(item) {
+  const taxable = getLineTaxableAmount(item);
+  const gstRate = getLineItemGstRate(item);
+  const halfRate = gstRate / 200;
+  const cgst = Math.round(taxable * halfRate * 100) / 100;
+  const sgst = Math.round(taxable * halfRate * 100) / 100;
+  return Math.round((taxable + cgst + sgst) * 100) / 100;
+}
+
 export function getLineItemGstRate(item) {
   const med =
     item?.medicine && typeof item.medicine === "object" ? item.medicine : null;
@@ -26,7 +42,9 @@ export function calculateInvoiceTax(items = []) {
     const rate = Number(item.rate) || 0;
     const gstRate = getLineItemGstRate(item);
     const amount =
-      item.amount != null ? Number(item.amount) : calculateLineAmount(quantity, rate);
+      item.amount != null
+        ? Number(item.amount)
+        : calculateLineAmount(quantity, rate);
     const halfRate = gstRate / 200;
     const cgst = Math.round(amount * halfRate * 100) / 100;
     const sgst = Math.round(amount * halfRate * 100) / 100;
@@ -35,8 +53,10 @@ export function calculateInvoiceTax(items = []) {
   });
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
-  const cgst = Math.round(lineItems.reduce((sum, item) => sum + item.cgst, 0) * 100) / 100;
-  const sgst = Math.round(lineItems.reduce((sum, item) => sum + item.sgst, 0) * 100) / 100;
+  const cgst =
+    Math.round(lineItems.reduce((sum, item) => sum + item.cgst, 0) * 100) / 100;
+  const sgst =
+    Math.round(lineItems.reduce((sum, item) => sum + item.sgst, 0) * 100) / 100;
   const exactTotal = subtotal + cgst + sgst;
   const grandTotal = Math.round(exactTotal);
   const roundOff = Math.round((grandTotal - exactTotal) * 100) / 100;

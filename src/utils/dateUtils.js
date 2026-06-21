@@ -51,17 +51,3 @@ export function toInvoiceDatePayload(dateStr) {
   if (!year || !month || !day) return undefined;
   return `${year}-${month}-${day}`;
 }
-
-export function toExcelSerialDate(value) {
-  const parts = getCalendarParts(value);
-  if (!parts) return "";
-
-  const epoch = Date.UTC(1899, 11, 30);
-  const utcMs = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-  );
-
-  return Math.floor((utcMs - epoch) / 86400000);
-}

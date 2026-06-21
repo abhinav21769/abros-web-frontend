@@ -1,12 +1,17 @@
 import { X } from "lucide-react";
 
-export default function Modal({ title, children, footer, onClose, large }) {
+export default function Modal({ title, children, footer, onClose, large, preview }) {
+  const modalClass = [
+    "modal",
+    large ? "modal-lg" : "",
+    preview ? "modal-preview" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div
-        className={`modal${large ? " modal-lg" : ""}`}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className={modalClass} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="btn btn-ghost" onClick={onClose} aria-label="Close">
