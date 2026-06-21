@@ -1,15 +1,21 @@
 import { useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 import Modal from "./ui/Modal";
 import LottieLoader from "./ui/LottieLoader";
 import { invoicesApi } from "../api/client";
-import { downloadInvoicePdf, generateInvoicePdfBlob } from "../utils/invoiceExport";
+import {
+  downloadInvoicePdf,
+  generateInvoicePdfBlob,
+} from "../utils/invoiceExport";
+import { isMobileBrowser, openPdfBlobInNewTab } from "../utils/pdfMobile";
 
 export default function InvoicePreviewModal({ invoice, onClose }) {
   const [previewUrl, setPreviewUrl] = useState("");
+  const [pdfBlob, setPdfBlob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [fullInvoice, setFullInvoice] = useState(null);
+  const mobile = isMobileBrowser();
 
   useEffect(() => {
     if (!invoice?._id) return undefined;
@@ -20,6 +26,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
     setLoading(true);
     setError("");
     setPreviewUrl("");
+    setPdfBlob(null);
 
     invoicesApi
       .get(invoice._id)
@@ -29,6 +36,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
         const blob = await generateInvoicePdfBlob(res.data);
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
+        setPdfBlob(blob);
         setPreviewUrl(objectUrl);
       })
       .catch((err) => {
@@ -54,6 +62,16 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
     }
   };
 
+  const handleOpenPdf = () => {
+    if (pdfBlob) {
+      openPdfBlobInNewTab(pdfBlob);
+      return;
+    }
+    if (previewUrl) {
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
   if (!invoice) return null;
 
   return (
@@ -66,6 +84,15 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
           <button className="btn btn-secondary" onClick={onClose}>
             Close
           </button>
+          {mobile ? (
+            <button
+              className="btn btn-primary"
+              onClick={handleOpenPdf}
+              disabled={loading || Boolean(error)}
+            >
+              <ExternalLink size={16} /> Open PDF
+            </button>
+          ) : null}
           <button
             className="btn btn-primary"
             onClick={handleDownload}
@@ -81,6 +108,20 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
           <LottieLoader message="Generating preview..." compact />
         ) : error ? (
           <div className="invoice-preview-error">{error}</div>
+        ) : mobile ? (
+          <div className="invoice-preview-mobile">
+            <p>
+              PDF preview is limited in mobile browsers. Open the invoice PDF to
+              view, print, or share it from your phone.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleOpenPdf}
+            >
+              <ExternalLink size={16} /> Open PDF
+            </button>
+          </div>
         ) : (
           <iframe
             title={`Invoice ${invoice.invoiceNumber} preview`}

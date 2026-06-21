@@ -288,7 +288,10 @@ export default function Invoices() {
   const handlePrint = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
-      await printInvoicePdf(res.data);
+      const result = await printInvoicePdf(res.data);
+      if (result?.method === "open") {
+        toast.success("PDF opened — use your browser menu to print.");
+      }
     } catch (err) {
       toast.error(err.message);
     }
@@ -300,6 +303,10 @@ export default function Invoices() {
       const result = await shareInvoicePdf(res.data);
       if (result.method === "share") {
         toast.success("Invoice shared.");
+      } else if (result.method === "share-text") {
+        toast.success("Invoice details shared.");
+      } else if (result.method === "open") {
+        toast.success("PDF opened — use your browser menu to share.");
       } else if (result.method === "download") {
         toast.success("Sharing not supported here — PDF downloaded instead.");
       }

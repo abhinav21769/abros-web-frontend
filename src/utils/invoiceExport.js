@@ -1,5 +1,10 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  isMobileBrowser,
+  openPdfBlobInNewTab,
+  savePdfBlob,
+} from "./pdfMobile";
 import { isPaymentConfigured } from "../config/payment";
 import { generateUpiQrDataUrl, getInvoicePaymentNote } from "./upiPayment";
 import {
@@ -508,12 +513,19 @@ export async function generateInvoicePdfBlob(invoice) {
 }
 
 export async function downloadInvoicePdf(invoice) {
-  const doc = await renderInvoicePdf(invoice);
-  doc.save(`${sanitizeFilename(invoice.invoiceNumber)}.pdf`);
+  const blob = await generateInvoicePdfBlob(invoice);
+  const filename = `${sanitizeFilename(invoice.invoiceNumber)}.pdf`;
+  savePdfBlob(blob, filename);
 }
 
 export async function printInvoicePdf(invoice) {
   const blob = await generateInvoicePdfBlob(invoice);
+
+  if (isMobileBrowser()) {
+    openPdfBlobInNewTab(blob);
+    return { method: "open" };
+  }
+
   const url = URL.createObjectURL(blob);
 
   return new Promise((resolve, reject) => {
@@ -534,7 +546,7 @@ export async function printInvoicePdf(invoice) {
 
     const handleFocus = () => {
       window.setTimeout(cleanup, 500);
-      resolve();
+      resolve({ method: "print" });
     };
 
     iframe.onload = () => {
@@ -572,33 +584,43 @@ export async function shareInvoicePdf(invoice) {
   const filename = `${sanitizeFilename(invoice.invoiceNumber)}.pdf`;
   const file = new File([blob], filename, { type: "application/pdf" });
   const text = buildInvoiceShareText(invoice);
+  const mobile = isMobileBrowser();
 
   if (navigator.share) {
-    const shareData = {
-      title: `Invoice ${invoice.invoiceNumber}`,
-      text,
-    };
-
-    if (navigator.canShare?.({ files: [file] })) {
-      shareData.files = [file];
-    }
-
     try {
-      await navigator.share(shareData);
-      return { method: "share" };
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share(
+          mobile
+            ? {
+                files: [file],
+                title: `Invoice ${invoice.invoiceNumber}`,
+              }
+            : {
+                files: [file],
+                title: `Invoice ${invoice.invoiceNumber}`,
+                text,
+              },
+        );
+        return { method: "share" };
+      }
+
+      await navigator.share({
+        title: `Invoice ${invoice.invoiceNumber}`,
+        text,
+      });
+      return { method: "share-text" };
     } catch (error) {
       if (error?.name === "AbortError") {
         return { method: "cancelled" };
       }
-      throw error;
     }
   }
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  if (mobile) {
+    openPdfBlobInNewTab(blob);
+    return { method: "open" };
+  }
+
+  savePdfBlob(blob, filename);
   return { method: "download" };
 }

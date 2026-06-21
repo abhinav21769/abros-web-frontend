@@ -757,6 +757,25 @@ tbody tr:last-child td {
   text-align: center;
 }
 
+.invoice-preview-mobile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 40vh;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+.invoice-preview-mobile p {
+  margin: 0;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
 .modal-header {
   padding: 22px 24px;
   border-bottom: 1px solid var(--border);
