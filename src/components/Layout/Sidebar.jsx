@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, FileText, Package, Users, Cross, X } from "lucide-react";
+import { LayoutDashboard, FileText, Package, Users, X } from "lucide-react";
+import BrandLogo from "../BrandLogo";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -18,9 +19,7 @@ export default function Sidebar({ isOpen = false, onClose }) {
 
       <div className="sidebar-brand relative">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon shadow-[0_0_24px_rgba(255,255,255,0.15)]">
-            <Cross size={22} strokeWidth={2.5} />
-          </div>
+          <BrandLogo size={40} className="sidebar-logo-icon" />
           <div className="sidebar-logo-text">
             <h1>Abros</h1>
             <span>Healthcare</span>

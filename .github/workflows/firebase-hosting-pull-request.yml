@@ -20,6 +20,8 @@ jobs:
       - run: npm install && npm run build
         env:
           VITE_API_URL: https://abros-healthcare.onrender.com
+          VITE_UPI_ID: ${{ secrets.VITE_UPI_ID }}
+          VITE_UPI_PAYEE_NAME: ${{ secrets.VITE_UPI_PAYEE_NAME }}
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

@@ -15,6 +15,8 @@ npm run dev
 | Variable | Description |
 |----------|-------------|
 | `VITE_API_URL` | Backend API URL (default: `http://localhost:3000` locally) |
+| `VITE_UPI_ID` | UPI VPA for scan-to-pay QR codes (e.g. `storename@paytm`) |
+| `VITE_UPI_PAYEE_NAME` | Payee name shown in UPI apps (default: `ABROS HEALTHCARE`) |
 
 Production builds use `https://abros-healthcare.onrender.com` automatically.
 

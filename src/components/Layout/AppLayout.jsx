@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Cross, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
+import BrandLogo from "../BrandLogo";
 import { GridBackground } from "../ui/grid-background";
 
 export default function AppLayout() {
@@ -31,9 +32,7 @@ export default function AppLayout() {
           <Menu size={22} />
         </button>
         <div className="mobile-header-brand">
-          <div className="mobile-header-logo">
-            <Cross size={18} strokeWidth={2.5} />
-          </div>
+          <BrandLogo size={32} className="mobile-header-logo" />
           <span>Abros Healthcare</span>
         </div>
       </header>

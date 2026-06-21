@@ -1,7 +1,13 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import brandLogo from "../assets/logo.jpg";
 import { formatCalendarDate, toExcelSerialDate } from "./dateUtils";
+import { isPaymentConfigured } from "../config/payment";
+import {
+  generateUpiQrDataUrl,
+  getInvoicePaymentNote,
+} from "./upiPayment";
 
 const SELLER = {
   name: "ABROS HEALTHCARE",
@@ -13,9 +19,12 @@ const SELLER = {
   dlNo: "DL NO.",
   dlValidUpto: "UPTO DT",
   licNo: "LIC NO",
-  creditLabel: "Credit",
   forLabel: "FOR  ABROS HEALTHCARE",
 };
+
+function getPaymentTypeLabel(invoice) {
+  return invoice?.paymentType === "cash" ? "Cash" : "Credit";
+}
 
 const GST_SLABS = ["5.00", "12.00", "18.00", "28.00"];
 
@@ -175,7 +184,7 @@ function buildBillHeaderRows(invoice) {
       "",
       "",
       "",
-      SELLER.creditLabel,
+      getPaymentTypeLabel(invoice),
       "",
       "MEDICAL",
       "",
@@ -398,19 +407,20 @@ export function downloadInvoiceExcel(invoice) {
   XLSX.writeFile(workbook, `${sanitizeFilename(invoice.invoiceNumber)}.xlsx`);
 }
 
-export function downloadInvoicePdf(invoice) {
+export async function downloadInvoicePdf(invoice) {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 8;
   const customer = invoice.customer || {};
   let y = 10;
 
+  doc.addImage(brandLogo, "JPEG", margin, y - 1, 14, 14);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(SELLER.name, margin, y);
-  doc.text("MEDICAL STORE", pageWidth - margin, y, { align: "right" });
+  doc.text(SELLER.name, margin + 16, y + 4);
+  doc.text("MEDICAL STORE", pageWidth - margin, y + 4, { align: "right" });
 
-  y += 6;
+  y += 10;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.text(SELLER.address, margin, y);
@@ -431,7 +441,9 @@ export function downloadInvoicePdf(invoice) {
   doc.setFont("helvetica", "bold");
   doc.text(`Invoice No: ${invoice.invoiceNumber}`, margin, y);
   doc.text(`Date: ${formatCalendarDate(invoice.invoiceDate)}`, pageWidth / 2, y);
-  doc.text(SELLER.creditLabel, pageWidth - margin, y, { align: "right" });
+  doc.text(getPaymentTypeLabel(invoice), pageWidth - margin, y, {
+    align: "right",
+  });
 
   y += 4;
 
@@ -487,6 +499,27 @@ export function downloadInvoicePdf(invoice) {
   TERMS.forEach((term, index) => {
     doc.text(term, margin, y + 5 + index * 4);
   });
+
+  if (isPaymentConfigured() && invoice.status !== "cancelled") {
+    try {
+      const qrDataUrl = await generateUpiQrDataUrl({
+        amount: invoice.total,
+        note: getInvoicePaymentNote(invoice),
+      });
+      const qrSize = 28;
+      const qrX = pageWidth - margin - qrSize;
+      const qrY = y - 2;
+
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("Scan to Pay", qrX + qrSize / 2, qrY + qrSize + 4, {
+        align: "center",
+      });
+    } catch {
+      // Skip QR on PDF if generation fails.
+    }
+  }
 
   doc.save(`${sanitizeFilename(invoice.invoiceNumber)}.pdf`);
 }

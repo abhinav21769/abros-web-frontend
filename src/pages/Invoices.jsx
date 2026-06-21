@@ -6,9 +6,11 @@ import {
   X,
   Download,
   FileSpreadsheet,
+  QrCode,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Modal from "../components/ui/Modal";
+import PaymentQrModal from "../components/PaymentQrModal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import {
@@ -21,6 +23,7 @@ import {
   toDateInputValue,
   toInvoiceDatePayload,
 } from "../utils/dateUtils";
+import { isPaymentConfigured } from "../config/payment";
 
 const emptyItem = {
   medicine: "",
@@ -34,6 +37,7 @@ const emptyForm = {
   invoiceNumber: "",
   customer: "",
   status: "pending",
+  paymentType: "credit",
   invoiceDate: getTodayDateInputValue(),
   notes: "",
   items: [{ ...emptyItem }],
@@ -57,6 +61,10 @@ function statusBadge(status) {
   );
 }
 
+function paymentTypeLabel(paymentType) {
+  return paymentType === "cash" ? "Cash" : "Credit";
+}
+
 export default function Invoices() {
   const toast = useToast();
   const [items, setItems] = useState([]);
@@ -70,6 +78,8 @@ export default function Invoices() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [paymentInvoice, setPaymentInvoice] = useState(null);
+  const paymentEnabled = isPaymentConfigured();
 
   const fetchItems = useCallback(() => {
     setLoading(true);
@@ -120,6 +130,7 @@ export default function Invoices() {
         invoiceNumber: item.invoiceNumber,
         customer: item.customer._id || item.customer,
         status: item.status,
+        paymentType: item.paymentType || "credit",
         invoiceDate: toDateInputValue(item.invoiceDate),
         notes: item.notes || "",
         items: item.items.map((i) => ({
@@ -186,6 +197,7 @@ export default function Invoices() {
       invoiceNumber: form.invoiceNumber,
       customer: form.customer,
       status: form.status,
+      paymentType: form.paymentType,
       invoiceDate: toInvoiceDatePayload(form.invoiceDate),
       notes: form.notes || undefined,
       items: form.items.map((item) => ({
@@ -225,7 +237,7 @@ export default function Invoices() {
   const handleDownloadPdf = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
-      downloadInvoicePdf(res.data);
+      await downloadInvoicePdf(res.data);
       toast.success("Invoice downloaded as PDF.");
     } catch (err) {
       toast.error(err.message);
@@ -282,6 +294,7 @@ export default function Invoices() {
                     <th>Date</th>
                     <th>Items</th>
                     <th>Total</th>
+                    <th>Payment</th>
                     <th>Status</th>
                     <th></th>
                   </tr>
@@ -296,9 +309,20 @@ export default function Invoices() {
                       <td>{formatCalendarDate(item.invoiceDate)}</td>
                       <td>{item.items.length}</td>
                       <td>{formatCurrency(item.total)}</td>
+                      <td>{paymentTypeLabel(item.paymentType)}</td>
                       <td>{statusBadge(item.status)}</td>
                       <td>
                         <div className="actions-cell">
+                          {paymentEnabled && item.status === "pending" && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => setPaymentInvoice(item)}
+                              aria-label="Pay via UPI"
+                              title="Pay via UPI"
+                            >
+                              <QrCode size={15} />
+                            </button>
+                          )}
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() => handleDownloadPdf(item)}
@@ -430,6 +454,18 @@ export default function Invoices() {
                 </select>
               </div>
               <div className="input-group">
+                <label>Payment Type *</label>
+                <select
+                  name="paymentType"
+                  value={form.paymentType}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="credit">Credit</option>
+                  <option value="cash">Cash</option>
+                </select>
+              </div>
+              <div className="input-group">
                 <label>Status</label>
                 <select
                   name="status"
@@ -553,6 +589,12 @@ export default function Invoices() {
             </div>
           </form>
         </Modal>
+      )}
+      {paymentInvoice && (
+        <PaymentQrModal
+          invoice={paymentInvoice}
+          onClose={() => setPaymentInvoice(null)}
+        />
       )}
     </>
   );

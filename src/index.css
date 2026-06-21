@@ -151,13 +151,17 @@ a {
 .sidebar-logo-icon {
   width: 40px;
   height: 40px;
-  background: var(--brand-gradient);
-  color: #fff;
-  border-radius: var(--radius-sm);
-  display: grid;
-  place-items: center;
   flex-shrink: 0;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45);
+}
+
+.brand-logo {
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.payment-qr-brand {
+  margin-bottom: 4px;
 }
 
 .sidebar-logo-text h1 {
@@ -675,6 +679,55 @@ tbody tr:last-child td {
   font-weight: 700;
 }
 
+.payment-qr-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.payment-qr-image {
+  width: 220px;
+  height: 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.payment-qr-amount {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.payment-qr-invoice {
+  margin: 0;
+  font-weight: 600;
+}
+
+.payment-qr-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.payment-qr-upi {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+.payment-qr-loading,
+.payment-qr-error {
+  padding: 24px 12px;
+  color: var(--text-muted);
+}
+
+.payment-qr-error {
+  color: var(--danger);
+}
+
 @media (max-width: 1024px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -736,11 +789,6 @@ tbody tr:last-child td {
   .mobile-header-logo {
     width: 32px;
     height: 32px;
-    border-radius: var(--radius-sm);
-    background: var(--brand-gradient);
-    color: #fff;
-    display: grid;
-    place-items: center;
     flex-shrink: 0;
   }
 
