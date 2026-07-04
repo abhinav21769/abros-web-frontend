@@ -45,6 +45,7 @@ const emptyItem = {
   medicineName: "",
   hsn: "",
   gstRate: "5",
+  discount: "0",
   quantity: "1",
   free: "0",
   rate: "",
@@ -218,6 +219,7 @@ export default function Invoices() {
           medicineName: i.medicineName,
           hsn: i.hsn || i.medicine?.hsn || "",
           gstRate: String(i.gstRate ?? i.medicine?.gstRate ?? 5),
+          discount: String(i.discount ?? 0),
           quantity: String(i.quantity),
           free: String(i.free ?? 0),
           rate: String(i.rate),
@@ -285,6 +287,7 @@ export default function Invoices() {
         form.items.map((item) => ({
           quantity: Number(item.quantity) || 0,
           rate: Number(item.rate) || 0,
+          discount: Number(item.discount) || 0,
           gstRate: Number(item.gstRate) || 5,
         })),
       ),
@@ -316,6 +319,7 @@ export default function Invoices() {
         medicine: item.medicine,
         medicineName: item.medicineName,
         hsn: item.hsn || undefined,
+        discount: Number(item.discount) || 0,
         gstRate: Number(item.gstRate) || 5,
         quantity: Number(item.quantity),
         free: Number(item.free) || 0,
@@ -867,6 +871,26 @@ export default function Invoices() {
                           )}
                         />
                         <FieldError message={itemFieldError(index, "free")} />
+                      </div>
+                      <div className="input-group">
+                        <label>Discount %</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={item.discount}
+                          onChange={(e) =>
+                            handleItemChange(index, "discount", e.target.value)
+                          }
+                          className={fieldClass(
+                            formErrors,
+                            `items.${index}.discount`,
+                          )}
+                        />
+                        <FieldError
+                          message={itemFieldError(index, "discount")}
+                        />
                       </div>
                       <div className="input-group">
                         <label>GST %</label>

@@ -6,15 +6,23 @@ export function normalizeGstRate(value) {
   return rate;
 }
 
-export function calculateLineAmount(quantity, rate) {
-  return Math.round(Number(quantity || 0) * Number(rate || 0) * 100) / 100;
+export function normalizeDiscount(value) {
+  const discount = Number(value);
+  if (!Number.isFinite(discount) || discount < 0) return 0;
+  return Math.min(discount, 100);
+}
+
+export function calculateLineAmount(quantity, rate, discount = 0) {
+  const gross = Number(quantity || 0) * Number(rate || 0);
+  const discountAmount = gross * (normalizeDiscount(discount) / 100);
+  return Math.round((gross - discountAmount) * 100) / 100;
 }
 
 export function getLineTaxableAmount(item) {
   const quantity = Number(item?.quantity) || 0;
   const rate = Number(item?.rate) || 0;
   if (item?.amount != null) return Number(item.amount);
-  return calculateLineAmount(quantity, rate);
+  return calculateLineAmount(quantity, rate, item?.discount);
 }
 
 export function getLineTotalWithGst(item) {
@@ -40,11 +48,12 @@ export function calculateInvoiceTax(items = []) {
   const lineItems = items.map((item) => {
     const quantity = Number(item.quantity) || 0;
     const rate = Number(item.rate) || 0;
+    const discount = normalizeDiscount(item.discount);
     const gstRate = getLineItemGstRate(item);
     const amount =
       item.amount != null
         ? Number(item.amount)
-        : calculateLineAmount(quantity, rate);
+        : calculateLineAmount(quantity, rate, discount);
     const halfRate = gstRate / 200;
     const cgst = Math.round(amount * halfRate * 100) / 100;
     const sgst = Math.round(amount * halfRate * 100) / 100;

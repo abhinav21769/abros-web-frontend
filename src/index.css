@@ -1053,7 +1053,7 @@ tbody tr:last-child td {
 }
 
 .invoice-item-row-bottom {
-  grid-template-columns: repeat(4, 1fr) auto;
+  grid-template-columns: repeat(5, 1fr) auto;
 }
 
 .invoice-item-row .input-group {

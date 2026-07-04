@@ -222,6 +222,14 @@ export function validateInvoiceForm(form, options = {}) {
     const rateError = positiveNumber(item.rate, "Rate");
     if (rateError) errors[`items.${index}.rate`] = rateError;
 
+    if (item.discount !== "" && item.discount != null) {
+      const discount = Number(item.discount);
+      if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+        errors[`items.${index}.discount`] =
+          "Discount must be between 0 and 100.";
+      }
+    }
+
     const hsnError = optionalPattern(
       item.hsn,
       HSN_REGEX,
