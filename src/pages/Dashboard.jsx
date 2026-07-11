@@ -7,7 +7,6 @@ import {
   Users,
   FileText,
   ShoppingCart,
-  BookOpen,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
@@ -367,9 +366,6 @@ export default function Dashboard() {
         </Link>
         <Link to="/invoices?type=purchase" className="btn btn-secondary">
           <ShoppingCart size={16} /> New Purchase
-        </Link>
-        <Link to="/ledger" className="btn btn-secondary">
-          <BookOpen size={16} /> Stock Ledger
         </Link>
         <Link to="/customers" className="btn btn-secondary">
           <Users size={16} /> Customers

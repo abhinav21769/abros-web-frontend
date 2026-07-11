@@ -234,7 +234,13 @@ export default function Invoices() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "paymentType"
+        ? { status: value === "cash" ? "paid" : "pending" }
+        : {}),
+    }));
     setFormErrors((prev) => clearFieldError(prev, name));
   };
 

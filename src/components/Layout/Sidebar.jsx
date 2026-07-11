@@ -7,7 +7,6 @@ import {
   X,
   LogOut,
   ShoppingCart,
-  BookOpen,
 } from "lucide-react";
 import BrandLogo from "../BrandLogo";
 import { useAuth } from "../../context/AuthContext";
@@ -22,7 +21,6 @@ const navItems = [
     icon: ShoppingCart,
     invoiceTab: "purchase",
   },
-  { to: "/ledger", label: "Ledger", icon: BookOpen },
   { to: "/customers", label: "Customers", icon: Users },
 ];
 
