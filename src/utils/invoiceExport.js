@@ -8,7 +8,6 @@ import {
 } from "./pdfMobile";
 import {
   calculateInvoiceTax,
-  formatGstRate,
   getLineItemGstRate,
   getLineTotalWithGst,
 } from "./invoiceTax";
@@ -161,17 +160,18 @@ function formatLineItemQuantity(quantity, free) {
 
 const PDF_ITEM_HEADERS = [
   "S. No.",
-  "Name of Product",
+  "Prodcut Name",
   "Packing",
   "HSN",
   "MFG",
   "BATCH",
   "EXP.",
+  "MRP",
   "QTY.",
   "RATE",
   "DISC.",
-  "GST Rate",
-  "MRP",
+  "CGST",
+  "SGST",
   "Amount",
 ];
 
@@ -208,11 +208,12 @@ function buildPdfTableRows(invoice) {
       med?.manufacturer || "",
       med?.batchNumber || "",
       med?.expiryDate ? formatExpiryShort(med.expiryDate) : "",
+      formatAmount(med?.mrp ?? item.rate),
       formatLineItemQuantity(item.quantity, item.free),
       formatAmount(item.rate),
       `${Number(item.discount || 0).toFixed(2)}%`,
-      formatGstRate(getLineItemGstRate(item)),
-      formatAmount(med?.mrp ?? item.rate),
+      `${getLineItemGstRate(item) / 2}%`,
+      `${getLineItemGstRate(item) / 2}%`,
       formatAmount(getLineTotalWithGst(item)),
     ];
   });
@@ -229,17 +230,14 @@ function drawPdfLabelValue(doc, label, value, x, y, labelWidth = 24) {
 }
 
 function getScaledColumnStyles(contentWidth) {
-  const pdfColumnWidths = [9, 32, 13, 10, 13, 13, 10, 10, 11, 10, 10, 11, 16];
+  const pdfColumnWidths = [9, 22, 13, 10, 13, 13, 10, 11, 10, 11, 10, 8, 8, 16];
   const widthScale =
     contentWidth / pdfColumnWidths.reduce((sum, width) => sum + width, 0);
 
   return pdfColumnWidths.reduce((styles, width, index) => {
     styles[index] = {
       cellWidth: width * widthScale,
-      ...(index === 0 || [2, 3, 4, 5, 6, 7, 9, 10].includes(index)
-        ? { halign: "center" }
-        : {}),
-      ...([8, 11, 12].includes(index) ? { halign: "right" } : {}),
+      halign: "center",
     };
     return styles;
   }, {});
@@ -258,6 +256,8 @@ function buildPaddedTableRows(invoice, tax) {
   paddedRows.push([
     "",
     "TOTAL",
+    "",
+    "",
     "",
     "",
     "",
@@ -472,12 +472,12 @@ function drawInvoiceCopy(doc, invoice, options) {
         data.column.index === 1
       ) {
         data.cell.styles.fontStyle = "bold";
-        data.cell.styles.halign = "right";
+        data.cell.styles.halign = "center";
       }
       if (
         data.section === "body" &&
         data.row.index === paddedRows.length - 1 &&
-        data.column.index === 12
+        data.column.index === 13
       ) {
         data.cell.styles.fontStyle = "bold";
       }
@@ -572,11 +572,7 @@ export async function renderInvoicePdf(invoice) {
   const isPurchase = invoice.invoiceType === "purchase";
   let qrDataUrl = null;
 
-  if (
-    !isPurchase &&
-    isPaymentConfigured() &&
-    invoice.status !== "cancelled"
-  ) {
+  if (!isPurchase && isPaymentConfigured() && invoice.status !== "cancelled") {
     try {
       qrDataUrl = await generateUpiQrDataUrl({
         amount: tax.grandTotal,
