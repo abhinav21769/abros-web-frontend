@@ -970,8 +970,64 @@ tbody tr:last-child td {
   color: var(--text-main);
 }
 
-.input-group input,
+/* Dropdown Controls Styling */
+select,
 .input-group select,
+.gst-filter-item select {
+  padding: 10px 38px 10px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-elevated);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] select,
+[data-theme="dark"] .input-group select,
+[data-theme="dark"] .gst-filter-item select {
+  background-color: rgba(15, 23, 42, 0.75);
+  border-color: rgba(255, 255, 255, 0.16);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232dd4bf' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+select:hover,
+.input-group select:hover,
+.gst-filter-item select:hover {
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(45, 212, 191, 0.18);
+}
+
+select:focus,
+.input-group select:focus,
+.gst-filter-item select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
+}
+
+select option {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 10px;
+}
+
+[data-theme="light"] select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.input-group input,
 .input-group textarea {
   padding: 9px 14px;
   border: 1px solid var(--border-strong);
@@ -984,7 +1040,6 @@ tbody tr:last-child td {
 }
 
 .input-group input:focus,
-.input-group select:focus,
 .input-group textarea:focus {
   outline: none;
   border-color: var(--primary);
