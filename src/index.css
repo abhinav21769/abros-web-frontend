@@ -992,14 +992,47 @@ tbody tr:last-child td {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 12px;
   padding: 40px 24px;
+}
+
+.lottie-loader-compact {
+  padding: 24px 16px;
+  gap: 8px;
 }
 
 .lottie-loader-fullscreen {
   min-height: 100vh;
   width: 100%;
   background: var(--bg);
+}
+
+.spinner-ring {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spinner-spin 0.65s linear infinite;
+}
+
+.lottie-loader-fullscreen .spinner-ring {
+  width: 44px;
+  height: 44px;
+  border-width: 3.5px;
+}
+
+.lottie-loader-message {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@keyframes spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Login Page Styling */
