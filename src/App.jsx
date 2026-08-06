@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
 import Customers from "./pages/Customers";
+import GstReturns from "./pages/GstReturns";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
                   element={<Navigate to="/invoices?type=purchase" replace />}
                 />
                 <Route path="customers" element={<Customers />} />
+                <Route path="gst-returns" element={<GstReturns />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

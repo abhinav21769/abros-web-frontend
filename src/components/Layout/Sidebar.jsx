@@ -7,6 +7,7 @@ import {
   X,
   LogOut,
   ShoppingCart,
+  FileBarChart,
 } from "lucide-react";
 import BrandLogo from "../BrandLogo";
 import { useAuth } from "../../context/AuthContext";
@@ -22,6 +23,7 @@ const navItems = [
     invoiceTab: "purchase",
   },
   { to: "/customers", label: "Customers", icon: Users },
+  { to: "/gst-returns", label: "GST Returns", icon: FileBarChart },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {

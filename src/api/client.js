@@ -105,6 +105,16 @@ export const dashboardApi = {
   stats: (days = 30) => request(`/api/dashboard/stats?days=${days}`),
 };
 
+export const gstApi = {
+  quarterlySummary: ({ financialYear, quarter } = {}) => {
+    const params = new URLSearchParams();
+    if (financialYear != null) params.set("financialYear", financialYear);
+    if (quarter != null) params.set("quarter", quarter);
+    const query = params.toString();
+    return request(`/api/gst/quarterly-summary${query ? `?${query}` : ""}`);
+  },
+};
+
 export const purchasesApi = {
   list: (params = {}) => {
     const query = new URLSearchParams(params).toString();
