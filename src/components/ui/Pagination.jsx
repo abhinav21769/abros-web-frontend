@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 function getVisiblePages(current, total) {
   if (total <= 1) return [1];
   if (total <= 5) {
@@ -40,17 +42,19 @@ export default function Pagination({
   return (
     <div className="pagination">
       <span className="pagination-summary">
-        Showing {start}–{end} of {totalItems} {itemLabel}
+        {start}–{end} of {totalItems} {itemLabel}
       </span>
 
       <div className="pagination-controls">
         <button
           type="button"
-          className="btn btn-secondary btn-sm"
+          className="pagination-nav-btn"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
+          aria-label="Previous page"
+          title="Previous page"
         >
-          Previous
+          <ChevronLeft size={14} />
         </button>
 
         <div className="pagination-pages">
@@ -81,11 +85,13 @@ export default function Pagination({
 
         <button
           type="button"
-          className="btn btn-secondary btn-sm"
+          className="pagination-nav-btn"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
+          aria-label="Next page"
+          title="Next page"
         >
-          Next
+          <ChevronRight size={14} />
         </button>
       </div>
     </div>
