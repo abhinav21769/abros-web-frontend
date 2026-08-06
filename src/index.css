@@ -1186,6 +1186,16 @@ tbody tr:last-child td {
   gap: 20px;
 }
 
+.invoice-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 20px;
+}
+
+.invoice-form-grid .full-width {
+  grid-column: 1 / -1;
+}
+
 .invoice-items-header {
   display: flex;
   align-items: center;
@@ -1206,39 +1216,55 @@ tbody tr:last-child td {
 .invoice-items {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
-.invoice-item-card {
+.input-group-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+}
+
+.invoice-stock-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(15, 118, 110, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.invoice-stock-badge--empty {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.invoice-single-line-item {
+  display: grid;
+  grid-template-columns: minmax(200px, 2.2fr) minmax(95px, 1fr) minmax(75px, 0.8fr) minmax(65px, 0.7fr) minmax(75px, 0.8fr) minmax(80px, 0.85fr) minmax(105px, 1fr) auto;
+  gap: 12px;
+  align-items: flex-start;
   background: var(--surface-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  position: relative;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   transition: border-color 0.15s ease;
 }
 
-.invoice-item-card:hover {
+.invoice-single-line-item:hover {
   border-color: var(--border-strong);
 }
 
-.invoice-item-row {
-  display: grid;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.invoice-item-row-top {
-  grid-template-columns: 2.2fr 1fr;
-}
-
-.invoice-item-row-bottom {
-  grid-template-columns: 1fr 1fr 1fr 1fr 1.2fr auto;
-  align-items: flex-end;
-}
+.input-group-medicine { min-width: 180px; }
+.input-group-hsn { width: 100%; }
+.input-group-qty { width: 100%; }
+.input-group-free { width: 100%; }
+.input-group-disc { width: 100%; }
+.input-group-gst { width: 100%; }
+.input-group-rate { width: 100%; }
 
 .medicine-select-row {
   display: flex;
@@ -1387,11 +1413,7 @@ tbody tr:last-child td {
     width: 100%;
   }
 
-  .invoice-item-row-top {
-    grid-template-columns: 1fr;
-  }
-
-  .invoice-item-row-bottom {
+  .invoice-single-line-item {
     grid-template-columns: repeat(2, 1fr);
   }
 
