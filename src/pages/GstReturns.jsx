@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FileBarChart, ExternalLink } from "lucide-react";
+import { FileBarChart, ExternalLink, Calendar, Building2, User, Layers } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
+import { FadeIn } from "../components/ui/fade-in";
 import { gstApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { formatCalendarDate } from "../utils/dateUtils";
@@ -18,6 +19,7 @@ function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
+    maximumFractionDigits: 0,
   }).format(Number(value) || 0);
 }
 
@@ -47,34 +49,52 @@ function buildFinancialYearOptions() {
   });
 }
 
-function SummaryCard({ title, badge, data, accent }) {
+function SummaryCard({ title, badge, data, accent, icon: Icon }) {
   return (
     <div className="card">
       <div className="card-header">
-        <h3>{title}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: "var(--surface-elevated)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: accent,
+            }}
+          >
+            <Icon size={16} />
+          </div>
+          <h3>{title}</h3>
+        </div>
         <span className={`badge ${badge}`}>{data.invoiceCount} invoices</span>
       </div>
       <div className="card-body">
         <div className="gst-summary-grid">
-          <div>
+          <div className="gst-summary-item">
             <span className="gst-summary-label">Taxable Value</span>
-            <strong style={{ color: accent }}>{formatCurrency(data.subtotal)}</strong>
+            <span className="gst-summary-value">{formatCurrency(data.subtotal)}</span>
           </div>
-          <div>
-            <span className="gst-summary-label">CGST</span>
-            <strong>{formatCurrency(data.cgst)}</strong>
+          <div className="gst-summary-item">
+            <span className="gst-summary-label">Total GST Tax</span>
+            <span className="gst-summary-value" style={{ color: accent }}>
+              {formatCurrency(data.gst)}
+            </span>
           </div>
-          <div>
-            <span className="gst-summary-label">SGST</span>
-            <strong>{formatCurrency(data.sgst)}</strong>
+          <div className="gst-summary-item">
+            <span className="gst-summary-label">CGST (50%)</span>
+            <span className="gst-summary-value">{formatCurrency(data.cgst)}</span>
           </div>
-          <div>
-            <span className="gst-summary-label">Total GST</span>
-            <strong>{formatCurrency(data.gst)}</strong>
+          <div className="gst-summary-item">
+            <span className="gst-summary-label">SGST (50%)</span>
+            <span className="gst-summary-value">{formatCurrency(data.sgst)}</span>
           </div>
-          <div>
-            <span className="gst-summary-label">Invoice Total</span>
-            <strong>{formatCurrency(data.total)}</strong>
+          <div className="gst-summary-item full-width">
+            <span className="gst-summary-label">Grand Total Amount</span>
+            <span className="gst-summary-value highlight">{formatCurrency(data.total)}</span>
           </div>
         </div>
       </div>
@@ -84,9 +104,9 @@ function SummaryCard({ title, badge, data, accent }) {
 
 function registrationBadge(type) {
   return type === "gst" ? (
-    <span className="badge badge-success">GST Registered</span>
+    <span className="badge badge-success">B2B Registered</span>
   ) : (
-    <span className="badge badge-neutral">Non-GST</span>
+    <span className="badge badge-neutral">B2C Retail</span>
   );
 }
 
@@ -124,13 +144,19 @@ export default function GstReturns() {
   }, [data, filter]);
 
   if (loading) {
-    return <LottieLoader fullScreen message="Loading GST summary..." />;
+    return <LottieLoader fullScreen message="Calculating GST tax returns..." />;
   }
 
   if (!data) {
     return (
-      <div className="empty-state" style={{ padding: "80px 24px" }}>
-        Unable to load GST return data. Please try again.
+      <div className="card" style={{ margin: "40px auto", maxWidth: 500, textAlign: "center" }}>
+        <div className="card-body" style={{ padding: "40px 24px" }}>
+          <FileBarChart size={32} color="var(--warning)" style={{ marginBottom: 12 }} />
+          <h3 style={{ fontSize: "1.1rem", marginBottom: 6 }}>GST Return Data Unavailable</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+            Unable to fetch GST tax summary for the selected period.
+          </p>
+        </div>
       </div>
     );
   }
@@ -140,15 +166,15 @@ export default function GstReturns() {
   return (
     <>
       <PageHeader
-        title="GST Returns"
-        subtitle="Quarterly sales split by GST registered and non-GST customers"
+        title="GST Tax Returns & Reports"
+        subtitle="Quarterly GSTR-1 sales tax filing report split by B2B registered and B2C retail invoices"
       />
 
-      <div className="card" style={{ marginBottom: 24 }}>
+      <FadeIn className="card gst-filters-card" delay={0.05}>
         <div className="card-body gst-filters-body">
           <div className="gst-filters">
-            <label className="input-group">
-              <span>Financial Year</span>
+            <div className="gst-filter-item">
+              <label>Financial Year</label>
               <select
                 value={financialYear}
                 onChange={(e) => setFinancialYear(Number(e.target.value))}
@@ -159,10 +185,10 @@ export default function GstReturns() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
-            <label className="input-group">
-              <span>Quarter</span>
+            <div className="gst-filter-item">
+              <label>Filing Quarter</label>
               <select
                 value={quarter}
                 onChange={(e) => setQuarter(Number(e.target.value))}
@@ -173,46 +199,48 @@ export default function GstReturns() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
             <div className="gst-period-label">
-              <FileBarChart size={16} />
+              <Calendar size={16} />
               <span>
-                {period.label} · {formatCalendarDate(period.fromDate)} to{" "}
-                {formatCalendarDate(period.toDate)}
+                {period.label}: {formatCalendarDate(period.fromDate)} – {formatCalendarDate(period.toDate)}
               </span>
             </div>
           </div>
         </div>
-      </div>
+      </FadeIn>
 
-      <div className="gst-summary-cards">
+      <FadeIn className="gst-summary-cards" delay={0.1}>
         <SummaryCard
-          title="GST Registered Customers"
+          title="B2B (GST Registered)"
           badge="badge-success"
           data={summary.gstRegistered}
           accent="var(--success)"
+          icon={Building2}
         />
         <SummaryCard
-          title="Non-GST Customers"
+          title="B2C Retail Sales"
           badge="badge-neutral"
           data={summary.nonGstRegistered}
-          accent="var(--text-muted)"
+          accent="var(--accent)"
+          icon={User}
         />
         <SummaryCard
-          title="Combined Total"
+          title="Combined Returns Total"
           badge="badge-warning"
           data={summary.combined}
           accent="var(--primary)"
+          icon={Layers}
         />
-      </div>
+      </FadeIn>
 
-      <div className="card">
+      <FadeIn className="card" delay={0.15}>
         <div className="page-tabs">
           {[
-            { id: "all", label: "All" },
-            { id: "gst", label: "GST Registered" },
-            { id: "non-gst", label: "Non-GST" },
+            { id: "all", label: `All Invoices (${data.invoices.length})` },
+            { id: "gst", label: `B2B Registered (${summary.gstRegistered.invoiceCount})` },
+            { id: "non-gst", label: `B2C Retail (${summary.nonGstRegistered.invoiceCount})` },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -227,45 +255,51 @@ export default function GstReturns() {
 
         <div className="table-wrap">
           {filteredInvoices.length === 0 ? (
-            <div className="empty-state">No sales invoices for this period.</div>
+            <div className="empty-state">No sales invoices recorded for this filing quarter.</div>
           ) : (
             <table>
               <thead>
                 <tr>
-                  <th>Invoice</th>
+                  <th>Invoice #</th>
                   <th>Date</th>
-                  <th>Customer</th>
-                  <th>Type</th>
-                  <th>Taxable</th>
+                  <th>Customer / Recipient</th>
+                  <th>Tax Type</th>
+                  <th>Taxable Amount</th>
                   <th>CGST</th>
                   <th>SGST</th>
-                  <th>Total</th>
-                  <th />
+                  <th>Total Amount</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredInvoices.map((invoice) => (
                   <tr key={invoice._id}>
-                    <td>{invoice.invoiceNumber}</td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: "var(--primary)" }}>
+                        {invoice.invoiceNumber}
+                      </span>
+                    </td>
                     <td>{formatCalendarDate(invoice.invoiceDate)}</td>
                     <td>
-                      <div>{invoice.customerName}</div>
+                      <div style={{ fontWeight: 600 }}>{invoice.customerName}</div>
                       {invoice.customerGstin && (
-                        <small className="text-muted">{invoice.customerGstin}</small>
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontFamily: "monospace" }}>
+                          GSTIN: {invoice.customerGstin}
+                        </div>
                       )}
                     </td>
                     <td>{registrationBadge(invoice.registrationType)}</td>
-                    <td>{formatCurrency(invoice.subtotal)}</td>
+                    <td style={{ fontWeight: 500 }}>{formatCurrency(invoice.subtotal)}</td>
                     <td>{formatCurrency(invoice.cgst)}</td>
                     <td>{formatCurrency(invoice.sgst)}</td>
-                    <td>{formatCurrency(invoice.total)}</td>
+                    <td style={{ fontWeight: 700 }}>{formatCurrency(invoice.total)}</td>
                     <td>
                       <Link
                         to="/invoices"
                         className="btn btn-ghost btn-sm"
-                        title="View in Sales"
+                        title="View invoice details"
                       >
-                        <ExternalLink size={16} />
+                        <ExternalLink size={15} />
                       </Link>
                     </td>
                   </tr>
@@ -274,7 +308,7 @@ export default function GstReturns() {
             </table>
           )}
         </div>
-      </div>
+      </FadeIn>
     </>
   );
 }

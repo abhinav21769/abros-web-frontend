@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, Sun, Moon } from "lucide-react";
 import Sidebar from "./Sidebar";
 import BrandLogo from "../BrandLogo";
-import { GridBackground } from "../ui/grid-background";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { toggleTheme, isDark } = useTheme();
   const location = useLocation();
 
   useEffect(() => {
@@ -32,9 +33,17 @@ export default function AppLayout() {
           <Menu size={22} />
         </button>
         <div className="mobile-header-brand">
-          <BrandLogo size={32} className="mobile-header-logo" />
+          <BrandLogo size={32} />
           <span>Abros Healthcare</span>
         </div>
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          onClick={toggleTheme}
+          aria-label="Toggle dark mode"
+        >
+          {isDark ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
       </header>
 
       {menuOpen && (
@@ -49,9 +58,7 @@ export default function AppLayout() {
       <Sidebar isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main className="main-content">
-        <GridBackground className="min-h-full">
-          <Outlet />
-        </GridBackground>
+        <Outlet />
       </main>
     </div>
   );

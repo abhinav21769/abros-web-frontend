@@ -7,13 +7,14 @@ import {
   Users,
   FileText,
   ShoppingCart,
+  TrendingUp,
+  Boxes,
+  ArrowUpRight,
+  PlusCircle,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
-import { MovingBorder } from "../components/ui/moving-border";
-import { SpotlightCard } from "../components/ui/spotlight-card";
 import { FadeIn } from "../components/ui/fade-in";
-import { ShimmerButton } from "../components/ui/shimmer-button";
 import { dashboardApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 
@@ -26,6 +27,7 @@ function formatCurrency(value) {
 }
 
 function formatDate(dateStr) {
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -44,18 +46,23 @@ function statusBadge(status) {
   );
 }
 
-function StatCard({ label, value, sub, valueStyle, icon }) {
+function StatCard({ label, value, sub, valueStyle, icon, iconBg = "var(--surface-elevated)", iconColor = "var(--primary)" }) {
   return (
-    <>
-      <div className="stat-card-label">
-        {icon}
-        {label}
+    <div className="stat-card">
+      <div className="stat-card-header">
+        <span className="stat-card-label">{label}</span>
+        <div
+          className="stat-card-icon"
+          style={{ backgroundColor: iconBg, color: iconColor }}
+        >
+          {icon}
+        </div>
       </div>
       <div className="stat-card-value" style={valueStyle}>
         {value}
       </div>
       {sub && <div className="stat-card-sub">{sub}</div>}
-    </>
+    </div>
   );
 }
 
@@ -84,13 +91,19 @@ export default function Dashboard() {
   }, [toast]);
 
   if (loading) {
-    return <LottieLoader fullScreen message="Loading dashboard..." />;
+    return <LottieLoader fullScreen message="Loading dashboard stats..." />;
   }
 
   if (loadFailed || !inventory || !customers || !invoices) {
     return (
-      <div className="empty-state" style={{ padding: "80px 24px" }}>
-        Unable to load dashboard data. Please try again.
+      <div className="card" style={{ margin: "40px auto", maxWidth: 500, textAlign: "center" }}>
+        <div className="card-body" style={{ padding: "40px 24px" }}>
+          <AlertTriangle size={32} color="var(--warning)" style={{ marginBottom: 12 }} />
+          <h3 style={{ fontSize: "1.1rem", marginBottom: 6 }}>Dashboard Data Unavailable</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+            Unable to fetch real-time overview metrics. Please refresh or try again.
+          </p>
+        </div>
       </div>
     );
   }
@@ -104,272 +117,271 @@ export default function Dashboard() {
     {
       label: "Total Stock Items",
       value: invStats.totalStock,
-      sub: `${invStats.totalQuantity} units in stock`,
+      sub: `${invStats.totalQuantity} total units available`,
+      icon: <Boxes size={18} />,
+      iconBg: "#f0fdfa",
+      iconColor: "#0f766e",
     },
     {
       label: "Inventory Value",
       value: formatCurrency(invStats.totalInventoryValue),
-      sub: "At rate pricing",
+      sub: "Valued at base rate pricing",
+      icon: <Package size={18} />,
+      iconBg: "#f0f9ff",
+      iconColor: "#0284c7",
     },
     {
       label: "Sales Revenue",
       value: formatCurrency(salesStats.totalRevenue),
       sub:
         salesStats.pendingAmount > 0
-          ? `${formatCurrency(salesStats.pendingAmount)} pending`
-          : `${salesStats.paidInvoices} paid invoices`,
+          ? `${formatCurrency(salesStats.pendingAmount)} pending balance`
+          : `${salesStats.paidInvoices} settled sales`,
+      icon: <TrendingUp size={18} />,
+      iconBg: "#ecfdf5",
+      iconColor: "#059669",
     },
     {
       label: "Purchase Orders",
       value: purchaseStats.totalInvoices,
       sub:
         purchaseStats.totalAmount > 0
-          ? `${formatCurrency(purchaseStats.totalAmount)} total value`
-          : "No purchase orders yet",
+          ? `${formatCurrency(purchaseStats.totalAmount)} cumulative value`
+          : "No orders processed",
+      icon: <ShoppingCart size={18} />,
+      iconBg: "#f5f3ff",
+      iconColor: "#7c3aed",
     },
   ];
 
   const secondaryStats = [
     {
-      label: "Expired",
+      label: "Expired Stock",
       value: invStats.expiredStock,
       valueStyle: { color: "var(--danger)" },
-      icon: (
-        <AlertTriangle
-          size={14}
-          style={{ display: "inline", marginRight: 4 }}
-        />
-      ),
+      sub: "Items past expiration date",
+      icon: <AlertTriangle size={18} />,
+      iconBg: "#fef2f2",
+      iconColor: "#dc2626",
     },
     {
       label: "Expiring Soon",
       value: invStats.expiringStock,
       valueStyle: { color: "var(--warning)" },
-      sub: `Within ${invStats.expiringWithinDays} days`,
-      icon: <Clock size={14} style={{ display: "inline", marginRight: 4 }} />,
+      sub: `Within next ${invStats.expiringWithinDays} days`,
+      icon: <Clock size={18} />,
+      iconBg: "#fffbeb",
+      iconColor: "#d97706",
     },
     {
-      label: "Low Stock",
+      label: "Low Stock Alert",
       value: invStats.lowStockCount,
-      sub: "Items below 10 units",
+      sub: "Medicines below 10 units",
+      icon: <AlertTriangle size={18} />,
+      iconBg: "#eff6ff",
+      iconColor: "#2563eb",
     },
     {
-      label: "Customers",
+      label: "Active Customers",
       value: custStats.totalCustomers,
-      sub: `${salesStats.totalInvoices} sale · ${purchaseStats.totalInvoices} purchase`,
+      sub: `${salesStats.totalInvoices} sales · ${purchaseStats.totalInvoices} purchases`,
+      icon: <Users size={18} />,
+      iconBg: "#fdf4ff",
+      iconColor: "#c026d3",
     },
   ];
 
   return (
     <>
       <PageHeader
-        title="Dashboard"
-        subtitle="Overview of inventory, sales, and purchase orders"
+        title="Operations Dashboard"
+        subtitle="Real-time breakdown of pharmaceutical inventory, sales revenue, and purchase orders"
+        action={
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link to="/inventory" className="btn btn-primary">
+              <PlusCircle size={16} /> Add Stock
+            </Link>
+            <Link to="/invoices" className="btn btn-secondary">
+              <FileText size={16} /> New Sale
+            </Link>
+          </div>
+        }
       />
 
       <FadeIn className="stats-grid" delay={0.05}>
         {primaryStats.map((stat) => (
-          <MovingBorder key={stat.label} className="h-full">
-            <div className="stat-card border-0 bg-transparent p-5 shadow-none">
-              <StatCard {...stat} />
-            </div>
-          </MovingBorder>
+          <StatCard key={stat.label} {...stat} />
         ))}
       </FadeIn>
 
       <FadeIn className="stats-grid" delay={0.1}>
         {secondaryStats.map((stat) => (
-          <SpotlightCard key={stat.label}>
-            <div className="stat-card border-0 bg-transparent p-5 shadow-none">
-              <StatCard {...stat} />
-            </div>
-          </SpotlightCard>
+          <StatCard key={stat.label} {...stat} />
         ))}
       </FadeIn>
 
       <FadeIn className="dashboard-grid" delay={0.15}>
-        <SpotlightCard>
-          <div className="card border-0 bg-transparent shadow-none">
-            <div className="card-header">
-              <h3>Recent Sales</h3>
-              <Link to="/invoices" className="btn btn-secondary btn-sm">
-                View All
-              </Link>
-            </div>
-            <div className="card-body">
-              {invoices.data.sales.recent.length === 0 ? (
-                <div className="empty-state">No sale invoices yet</div>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Invoice #</th>
-                        <th>Customer</th>
-                        <th>Date</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoices.data.sales.recent.map((inv) => (
-                        <tr key={inv._id}>
-                          <td>
-                            <strong>{inv.invoiceNumber}</strong>
-                          </td>
-                          <td>{inv.customer?.name || "—"}</td>
-                          <td>{formatDate(inv.invoiceDate)}</td>
-                          <td>{formatCurrency(inv.total)}</td>
-                          <td>{statusBadge(inv.status)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+        <div className="card">
+          <div className="card-header">
+            <h3>Recent Sales</h3>
+            <Link to="/invoices" className="btn btn-secondary btn-sm">
+              View All <ArrowUpRight size={14} />
+            </Link>
           </div>
-        </SpotlightCard>
+          <div className="card-body">
+            {invoices.data.sales.recent.length === 0 ? (
+              <div className="empty-state">No sales recorded yet</div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Invoice #</th>
+                      <th>Customer</th>
+                      <th>Date</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.data.sales.recent.map((inv) => (
+                      <tr key={inv._id}>
+                        <td>
+                          <span style={{ fontWeight: 700, color: "var(--primary)" }}>
+                            {inv.invoiceNumber}
+                          </span>
+                        </td>
+                        <td>{inv.customer?.name || "—"}</td>
+                        <td>{formatDate(inv.invoiceDate)}</td>
+                        <td style={{ fontWeight: 600 }}>{formatCurrency(inv.total)}</td>
+                        <td>{statusBadge(inv.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <SpotlightCard>
-          <div className="card border-0 bg-transparent shadow-none">
-            <div className="card-header">
-              <h3>Recent Purchases</h3>
-              <Link
-                to="/invoices?type=purchase"
-                className="btn btn-secondary btn-sm"
-              >
-                View All
-              </Link>
-            </div>
-            <div className="card-body">
-              {invoices.data.purchases.recent.length === 0 ? (
-                <div className="empty-state">No purchase orders yet</div>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>PO #</th>
-                        <th>Supplier</th>
-                        <th>Date</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoices.data.purchases.recent.map((inv) => (
-                        <tr key={inv._id}>
-                          <td>
-                            <strong>{inv.invoiceNumber}</strong>
-                          </td>
-                          <td>{inv.supplier || "—"}</td>
-                          <td>{formatDate(inv.invoiceDate)}</td>
-                          <td>{formatCurrency(inv.total)}</td>
-                          <td>{statusBadge(inv.status)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+        <div className="card">
+          <div className="card-header">
+            <h3>Recent Purchase Orders</h3>
+            <Link to="/invoices?type=purchase" className="btn btn-secondary btn-sm">
+              View All <ArrowUpRight size={14} />
+            </Link>
           </div>
-        </SpotlightCard>
+          <div className="card-body">
+            {invoices.data.purchases.recent.length === 0 ? (
+              <div className="empty-state">No purchase orders recorded yet</div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>PO #</th>
+                      <th>Supplier</th>
+                      <th>Date</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.data.purchases.recent.map((inv) => (
+                      <tr key={inv._id}>
+                        <td>
+                          <span style={{ fontWeight: 700, color: "var(--accent)" }}>
+                            {inv.invoiceNumber}
+                          </span>
+                        </td>
+                        <td>{inv.supplier || "—"}</td>
+                        <td>{formatDate(inv.invoiceDate)}</td>
+                        <td style={{ fontWeight: 600 }}>{formatCurrency(inv.total)}</td>
+                        <td>{statusBadge(inv.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </FadeIn>
 
       <FadeIn className="dashboard-grid" delay={0.2}>
-        <SpotlightCard>
-          <div className="card border-0 bg-transparent shadow-none">
-            <div className="card-header">
-              <h3>Expiring Soon</h3>
-              <Link to="/inventory" className="btn btn-secondary btn-sm">
-                View Inventory
-              </Link>
-            </div>
-            <div className="card-body">
-              {inventory.data.expiringMedicines.list.length === 0 ? (
-                <div className="empty-state">No medicines expiring soon</div>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Medicine</th>
-                        <th>Expiry</th>
-                        <th>Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {inventory.data.expiringMedicines.list.map((med, i) => (
-                        <tr key={i}>
-                          <td>{med.name}</td>
-                          <td>{formatDate(med.expiryDate)}</td>
-                          <td>{med.quantity}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+        <div className="card">
+          <div className="card-header">
+            <h3>Expiring Stock Alert</h3>
+            <Link to="/inventory" className="btn btn-secondary btn-sm">
+              Manage Stock
+            </Link>
           </div>
-        </SpotlightCard>
-
-        <SpotlightCard>
-          <div className="card border-0 bg-transparent shadow-none">
-            <div className="card-header">
-              <h3>Expired Stock</h3>
-              <Link to="/inventory" className="btn btn-secondary btn-sm">
-                Manage
-              </Link>
-            </div>
-            <div className="card-body">
-              {inventory.data.expiredMedicines.list.length === 0 ? (
-                <div className="empty-state">No expired medicines</div>
-              ) : (
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Medicine</th>
-                        <th>Expired</th>
-                        <th>Qty</th>
+          <div className="card-body">
+            {inventory.data.expiringMedicines.list.length === 0 ? (
+              <div className="empty-state">No medicines expiring soon</div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Medicine</th>
+                      <th>Expiry Date</th>
+                      <th>Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory.data.expiringMedicines.list.map((med, i) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: 600 }}>{med.name}</td>
+                        <td style={{ color: "var(--warning)", fontWeight: 600 }}>
+                          {formatDate(med.expiryDate)}
+                        </td>
+                        <td>{med.quantity} units</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {inventory.data.expiredMedicines.list.map((med, i) => (
-                        <tr key={i}>
-                          <td>{med.name}</td>
-                          <td>{formatDate(med.expiryDate)}</td>
-                          <td>{med.quantity}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </SpotlightCard>
-      </FadeIn>
+        </div>
 
-      <FadeIn
-        delay={0.25}
-        style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" }}
-      >
-        <ShimmerButton as={Link} to="/inventory">
-          <Package size={16} /> Add Medicine
-        </ShimmerButton>
-        <Link to="/invoices" className="btn btn-secondary">
-          <FileText size={16} /> New Sale
-        </Link>
-        <Link to="/invoices?type=purchase" className="btn btn-secondary">
-          <ShoppingCart size={16} /> New Purchase
-        </Link>
-        <Link to="/customers" className="btn btn-secondary">
-          <Users size={16} /> Customers
-        </Link>
+        <div className="card">
+          <div className="card-header">
+            <h3>Expired Stock List</h3>
+            <Link to="/inventory" className="btn btn-secondary btn-sm">
+              Resolve Items
+            </Link>
+          </div>
+          <div className="card-body">
+            {inventory.data.expiredMedicines.list.length === 0 ? (
+              <div className="empty-state">No expired medicines in inventory</div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Medicine</th>
+                      <th>Expired On</th>
+                      <th>Quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inventory.data.expiredMedicines.list.map((med, i) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: 600 }}>{med.name}</td>
+                        <td style={{ color: "var(--danger)", fontWeight: 600 }}>
+                          {formatDate(med.expiryDate)}
+                        </td>
+                        <td>{med.quantity} units</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </FadeIn>
     </>
   );

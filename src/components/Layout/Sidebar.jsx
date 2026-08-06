@@ -8,26 +8,30 @@ import {
   LogOut,
   ShoppingCart,
   FileBarChart,
+  Sun,
+  Moon,
 } from "lucide-react";
 import BrandLogo from "../BrandLogo";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/invoices", label: "Sales", icon: FileText, invoiceTab: "sale" },
-  { to: "/inventory", label: "Inventory", icon: Package },
+  { to: "/invoices", label: "Sales Invoices", icon: FileText, invoiceTab: "sale" },
+  { to: "/inventory", label: "Inventory Stock", icon: Package },
   {
     to: "/invoices",
-    label: "Purchases",
+    label: "Purchase Orders",
     icon: ShoppingCart,
     invoiceTab: "purchase",
   },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/gst-returns", label: "GST Returns", icon: FileBarChart },
+  { to: "/customers", label: "Customer Directory", icon: Users },
+  { to: "/gst-returns", label: "GST Returns & Tax", icon: FileBarChart },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const activeInvoiceTab =
@@ -41,19 +45,16 @@ export default function Sidebar({ isOpen = false, onClose }) {
     navigate("/login");
   };
 
+  const userName = user?.name || user?.username || "Admin User";
+  const userInitials = userName.substring(0, 2).toUpperCase();
+
   return (
     <aside className={`sidebar${isOpen ? " sidebar-open" : ""}`}>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-48 overflow-hidden">
-        <div className="absolute -top-16 left-1/2 h-32 w-60 -translate-x-1/2 rounded-full bg-indigo-500/25 blur-3xl" />
-        <div className="absolute top-0 left-0 h-px w-full bg-linear-to-r from-transparent via-indigo-400/40 to-transparent" />
-      </div>
-
-      <div className="sidebar-brand relative">
+      <div className="sidebar-brand">
         <div className="sidebar-logo">
-          <BrandLogo size={40} className="sidebar-logo-icon" />
+          <BrandLogo size={36} />
           <div className="sidebar-logo-text">
-            <h1>Abros</h1>
-            <span>Healthcare</span>
+            <h1>Abros Healthcare</h1>
           </div>
         </div>
         <button
@@ -66,7 +67,7 @@ export default function Sidebar({ isOpen = false, onClose }) {
         </button>
       </div>
 
-      <nav className="sidebar-nav relative">
+      <nav className="sidebar-nav">
         {navItems.map(({ to, label, icon: Icon, end, invoiceTab }) => {
           const linkTo =
             invoiceTab === "purchase"
@@ -95,14 +96,38 @@ export default function Sidebar({ isOpen = false, onClose }) {
         })}
       </nav>
 
-      <div className="sidebar-footer relative">
-        <div className="sidebar-user">{user?.name || user?.username}</div>
+      <div className="sidebar-footer">
+        <button
+          type="button"
+          className="theme-toggle-btn"
+          onClick={toggleTheme}
+          aria-label="Toggle dark mode"
+        >
+          <div className="theme-toggle-content">
+            {isDark ? <Moon size={16} className="text-teal-400" /> : <Sun size={16} className="text-amber-400" />}
+            <span>{isDark ? "Dark Mode" : "Light Mode"}</span>
+          </div>
+          <span className={`theme-toggle-badge ${isDark ? "is-dark" : "is-light"}`}>
+            {isDark ? "ON" : "OFF"}
+          </span>
+        </button>
+
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar">{userInitials}</div>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ lineHeight: 1.2 }}>{userName}</div>
+            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 400 }}>
+              Administrator
+            </span>
+          </div>
+        </div>
+
         <button
           type="button"
           className="sidebar-logout-btn"
           onClick={handleLogout}
         >
-          <LogOut size={16} />
+          <LogOut size={15} />
           Sign Out
         </button>
       </div>

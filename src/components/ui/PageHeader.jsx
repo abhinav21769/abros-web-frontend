@@ -1,14 +1,13 @@
 import { FadeIn } from "./fade-in";
 
-export default function PageHeader({ title, subtitle, action }) {
+export default function PageHeader({ title, heading, action }) {
+  const displayHeading = heading || title;
+
   return (
-    <FadeIn className="page-header">
+    <FadeIn className="page-header" delay={0.02}>
       <div className="page-header-row">
-        <div>
-          <h2>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
-        </div>
-        {action}
+        {displayHeading && <h2>{displayHeading}</h2>}
+        {action && <div>{action}</div>}
       </div>
     </FadeIn>
   );

@@ -1,6 +1,15 @@
+import { useEffect } from "react";
 import { X } from "lucide-react";
 
 export default function Modal({ title, children, footer, onClose, large, preview }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const modalClass = [
     "modal",
     large ? "modal-lg" : "",
@@ -14,7 +23,7 @@ export default function Modal({ title, children, footer, onClose, large, preview
       <div className={modalClass} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
-          <button className="btn btn-ghost" onClick={onClose} aria-label="Close">
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>

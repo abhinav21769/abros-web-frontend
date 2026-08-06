@@ -233,12 +233,15 @@ export default function Inventory() {
                   {items.map((item) => (
                     <tr key={item._id}>
                       <td>
-                        <strong>{item.name}</strong>
+                        <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.9rem" }}>
+                          {item.name}
+                        </div>
                         {item.manufacturer && (
                           <div
                             style={{
                               fontSize: "0.75rem",
                               color: "var(--text-muted)",
+                              marginTop: 2,
                             }}
                           >
                             {item.manufacturer}
@@ -246,10 +249,10 @@ export default function Inventory() {
                         )}
                       </td>
                       <td>{item.packagingType}</td>
-                      <td>{item.hsn || "—"}</td>
-                      <td>{item.batchNumber || "—"}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{item.hsn || "—"}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{item.batchNumber || "—"}</td>
                       <td>{formatDate(item.expiryDate)}</td>
-                      <td>{item.quantity}</td>
+                      <td style={{ fontWeight: 600 }}>{item.quantity}</td>
                       <td>{formatCurrency(item.mrp)}</td>
                       <td>{formatCurrency(item.rate)}</td>
                       <td>{item.gstRate ?? 5}%</td>
@@ -260,14 +263,14 @@ export default function Inventory() {
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() => openEdit(item)}
-                            aria-label="Edit"
+                            aria-label="Edit medicine"
                           >
                             <Pencil size={15} />
                           </button>
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() => handleDelete(item._id)}
-                            aria-label="Delete"
+                            aria-label="Delete medicine"
                           >
                             <Trash2 size={15} color="var(--danger)" />
                           </button>

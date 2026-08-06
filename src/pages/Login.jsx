@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
+import { User, Lock, ArrowRight } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
 import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
@@ -21,7 +22,7 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
-    return <LottieLoader fullScreen message="Loading..." />;
+    return <LottieLoader fullScreen message="Authenticating session..." />;
   }
 
   if (isAuthenticated) {
@@ -50,20 +51,23 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-brand">
-          <BrandLogo size={56} />
+          <BrandLogo size={48} />
           <div>
             <h1>Abros Healthcare</h1>
-            <p>Sign in to manage inventory and invoices</p>
+            <p>Pharmaceutical Management ERP</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <User size={14} color="var(--primary)" /> Username
+            </label>
             <input
               id="username"
               name="username"
               value={username}
+              placeholder="Enter your username"
               onChange={(e) => {
                 setUsername(e.target.value);
                 setFormErrors((prev) => clearFieldError(prev, "username"));
@@ -75,11 +79,14 @@ export default function Login() {
           </div>
 
           <div className="input-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Lock size={14} color="var(--primary)" /> Password
+            </label>
             <input
               id="password"
               name="password"
               type="password"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
@@ -92,7 +99,11 @@ export default function Login() {
           </div>
 
           <button className="btn btn-primary login-submit" disabled={submitting}>
-            {submitting ? "Signing in..." : "Sign In"}
+            {submitting ? "Signing in..." : (
+              <>
+                Sign In to Dashboard <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </form>
       </div>
