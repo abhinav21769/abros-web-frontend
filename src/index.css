@@ -714,7 +714,7 @@ a {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   text-align: left;
 }
 
@@ -723,10 +723,10 @@ thead {
 }
 
 th {
-  padding: 12px 20px;
+  padding: 12px 10px;
   font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   font-weight: 700;
   border-bottom: 1px solid var(--border);
@@ -734,10 +734,11 @@ th {
 }
 
 td {
-  padding: 14px 20px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--border-subtle);
   vertical-align: middle;
   color: var(--text-main);
+  white-space: nowrap;
 }
 
 tbody tr {
@@ -753,9 +754,21 @@ tbody tr:last-child td {
 }
 
 .actions-cell {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.actions-cell .btn {
+  padding: 4px 5px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+
+.actions-cell .btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Status Badges */

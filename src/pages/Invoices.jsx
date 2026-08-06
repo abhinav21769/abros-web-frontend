@@ -404,7 +404,9 @@ export default function Invoices() {
         toast.success("Sharing not supported here — PDF downloaded instead.");
       }
     } catch (err) {
-      toast.error(err.message);
+      if (err?.name !== "AbortError") {
+        toast.error(err.message || "Could not share invoice.");
+      }
     }
   };
 

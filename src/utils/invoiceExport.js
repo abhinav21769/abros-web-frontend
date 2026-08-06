@@ -657,13 +657,15 @@ export async function printInvoicePdf(invoice) {
         window.addEventListener("focus", handleFocus);
       } catch (error) {
         cleanup();
-        reject(error);
+        openPdfBlobInNewTab(blob);
+        resolve({ method: "open" });
       }
     };
 
     iframe.onerror = () => {
       cleanup();
-      reject(new Error("Could not open the invoice for printing."));
+      openPdfBlobInNewTab(blob);
+      resolve({ method: "open" });
     };
 
     document.body.appendChild(iframe);
@@ -684,47 +686,71 @@ function buildInvoiceShareText(invoice) {
 }
 
 export async function shareInvoicePdf(invoice) {
-  const blob = await generateInvoicePdfBlob(invoice);
   const filename = `${sanitizeFilename(invoice.invoiceNumber)}.pdf`;
-  const file = new File([blob], filename, { type: "application/pdf" });
   const text = buildInvoiceShareText(invoice);
   const mobile = isMobileBrowser();
 
-  if (navigator.share) {
-    try {
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share(
-          mobile
-            ? {
-                files: [file],
-                title: `Invoice ${invoice.invoiceNumber}`,
-              }
-            : {
-                files: [file],
-                title: `Invoice ${invoice.invoiceNumber}`,
-                text,
-              },
-        );
-        return { method: "share" };
+  try {
+    const blob = await generateInvoicePdfBlob(invoice);
+    const file = new File([blob], filename, { type: "application/pdf" });
+
+    if (navigator.share) {
+      let canShareFiles = false;
+      try {
+        canShareFiles = Boolean(navigator.canShare?.({ files: [file] }));
+      } catch (e) {
+        canShareFiles = false;
       }
 
-      await navigator.share({
-        title: `Invoice ${invoice.invoiceNumber}`,
-        text,
-      });
-      return { method: "share-text" };
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        return { method: "cancelled" };
+      if (canShareFiles) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Invoice ${invoice.invoiceNumber}`,
+            text,
+          });
+          return { method: "share" };
+        } catch (shareErr) {
+          if (shareErr?.name === "AbortError") {
+            return { method: "cancelled" };
+          }
+        }
+      }
+
+      // Fallback to text-only web share if file share failed or isn't allowed
+      try {
+        await navigator.share({
+          title: `Invoice ${invoice.invoiceNumber}`,
+          text,
+        });
+        return { method: "share-text" };
+      } catch (textErr) {
+        if (textErr?.name === "AbortError") {
+          return { method: "cancelled" };
+        }
       }
     }
-  }
 
-  if (mobile) {
-    openPdfBlobInNewTab(blob);
-    return { method: "open" };
-  }
+    if (mobile) {
+      openPdfBlobInNewTab(blob);
+      return { method: "open" };
+    }
 
-  savePdfBlob(blob, filename);
-  return { method: "download" };
+    savePdfBlob(blob, filename);
+    return { method: "download" };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      return { method: "cancelled" };
+    }
+    if (mobile) {
+      try {
+        const fallbackBlob = await generateInvoicePdfBlob(invoice);
+        openPdfBlobInNewTab(fallbackBlob);
+        return { method: "open" };
+      } catch (e) {
+        // ignore
+      }
+    }
+    throw error;
+  }
 }
