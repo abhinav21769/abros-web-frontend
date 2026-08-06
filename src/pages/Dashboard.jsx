@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Pill,
+  Warehouse,
+  ReceiptText,
+  Truck,
+  CalendarX,
+  CalendarClock,
+  ShieldAlert,
+  Building2,
   AlertTriangle,
-  Clock,
-  Package,
-  Users,
-  FileText,
-  ShoppingCart,
-  TrendingUp,
-  Boxes,
   ArrowUpRight,
   PlusCircle,
+  FileText,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
@@ -91,7 +93,7 @@ export default function Dashboard() {
   }, [toast]);
 
   if (loading) {
-    return <LottieLoader fullScreen message="Loading dashboard stats..." />;
+    return <LottieLoader fullScreen message="Loading operational metrics..." />;
   }
 
   if (loadFailed || !inventory || !customers || !invoices) {
@@ -118,17 +120,17 @@ export default function Dashboard() {
       label: "Total Stock Items",
       value: invStats.totalStock,
       sub: `${invStats.totalQuantity} total units available`,
-      icon: <Boxes size={18} />,
-      iconBg: "#f0fdfa",
-      iconColor: "#0f766e",
+      icon: <Pill size={18} />,
+      iconBg: "rgba(15, 118, 110, 0.12)",
+      iconColor: "var(--primary)",
     },
     {
       label: "Inventory Value",
       value: formatCurrency(invStats.totalInventoryValue),
       sub: "Valued at base rate pricing",
-      icon: <Package size={18} />,
-      iconBg: "#f0f9ff",
-      iconColor: "#0284c7",
+      icon: <Warehouse size={18} />,
+      iconBg: "rgba(2, 132, 199, 0.12)",
+      iconColor: "var(--accent)",
     },
     {
       label: "Sales Revenue",
@@ -137,9 +139,9 @@ export default function Dashboard() {
         salesStats.pendingAmount > 0
           ? `${formatCurrency(salesStats.pendingAmount)} pending balance`
           : `${salesStats.paidInvoices} settled sales`,
-      icon: <TrendingUp size={18} />,
-      iconBg: "#ecfdf5",
-      iconColor: "#059669",
+      icon: <ReceiptText size={18} />,
+      iconBg: "rgba(5, 150, 105, 0.12)",
+      iconColor: "var(--success)",
     },
     {
       label: "Purchase Orders",
@@ -148,8 +150,8 @@ export default function Dashboard() {
         purchaseStats.totalAmount > 0
           ? `${formatCurrency(purchaseStats.totalAmount)} cumulative value`
           : "No orders processed",
-      icon: <ShoppingCart size={18} />,
-      iconBg: "#f5f3ff",
+      icon: <Truck size={18} />,
+      iconBg: "rgba(124, 58, 237, 0.12)",
       iconColor: "#7c3aed",
     },
   ];
@@ -160,33 +162,33 @@ export default function Dashboard() {
       value: invStats.expiredStock,
       valueStyle: { color: "var(--danger)" },
       sub: "Items past expiration date",
-      icon: <AlertTriangle size={18} />,
-      iconBg: "#fef2f2",
-      iconColor: "#dc2626",
+      icon: <CalendarX size={18} />,
+      iconBg: "rgba(220, 38, 38, 0.12)",
+      iconColor: "var(--danger)",
     },
     {
       label: "Expiring Soon",
       value: invStats.expiringStock,
       valueStyle: { color: "var(--warning)" },
       sub: `Within next ${invStats.expiringWithinDays} days`,
-      icon: <Clock size={18} />,
-      iconBg: "#fffbeb",
-      iconColor: "#d97706",
+      icon: <CalendarClock size={18} />,
+      iconBg: "rgba(217, 119, 6, 0.12)",
+      iconColor: "var(--warning)",
     },
     {
       label: "Low Stock Alert",
       value: invStats.lowStockCount,
       sub: "Medicines below 10 units",
-      icon: <AlertTriangle size={18} />,
-      iconBg: "#eff6ff",
+      icon: <ShieldAlert size={18} />,
+      iconBg: "rgba(37, 99, 235, 0.12)",
       iconColor: "#2563eb",
     },
     {
-      label: "Active Customers",
+      label: "Active Clients",
       value: custStats.totalCustomers,
       sub: `${salesStats.totalInvoices} sales · ${purchaseStats.totalInvoices} purchases`,
-      icon: <Users size={18} />,
-      iconBg: "#fdf4ff",
+      icon: <Building2 size={18} />,
+      iconBg: "rgba(192, 38, 211, 0.12)",
       iconColor: "#c026d3",
     },
   ];
@@ -195,7 +197,6 @@ export default function Dashboard() {
     <>
       <PageHeader
         title="Operations Dashboard"
-        subtitle="Real-time breakdown of pharmaceutical inventory, sales revenue, and purchase orders"
         action={
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <Link to="/inventory" className="btn btn-primary">
@@ -354,32 +355,9 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="card-body">
-            {inventory.data.expiredMedicines.list.length === 0 ? (
-              <div className="empty-state">No expired medicines in inventory</div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Medicine</th>
-                      <th>Expired On</th>
-                      <th>Quantity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inventory.data.expiredMedicines.list.map((med, i) => (
-                      <tr key={i}>
-                        <td style={{ fontWeight: 600 }}>{med.name}</td>
-                        <td style={{ color: "var(--danger)", fontWeight: 600 }}>
-                          {formatDate(med.expiryDate)}
-                        </td>
-                        <td>{med.quantity} units</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {inventory.data.expiredMedicines.list.map((med, i) => (
+              <div className="empty-state" key={i}>No expired medicines in inventory</div>
+            ))}
           </div>
         </div>
       </FadeIn>

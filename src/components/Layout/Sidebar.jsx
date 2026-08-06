@@ -1,13 +1,13 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  FileText,
-  Package,
-  Users,
+  Activity,
+  ReceiptText,
+  Pill,
+  Truck,
+  Building2,
+  Landmark,
   X,
   LogOut,
-  ShoppingCart,
-  FileBarChart,
   Sun,
   Moon,
 } from "lucide-react";
@@ -16,17 +16,17 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/invoices", label: "Sales Invoices", icon: FileText, invoiceTab: "sale" },
-  { to: "/inventory", label: "Inventory Stock", icon: Package },
+  { to: "/", label: "Dashboard", icon: Activity, end: true },
+  { to: "/invoices", label: "Sales Invoices", icon: ReceiptText, invoiceTab: "sale" },
+  { to: "/inventory", label: "Medicine Inventory", icon: Pill },
   {
     to: "/invoices",
     label: "Purchase Orders",
-    icon: ShoppingCart,
+    icon: Truck,
     invoiceTab: "purchase",
   },
-  { to: "/customers", label: "Customer Directory", icon: Users },
-  { to: "/gst-returns", label: "GST Returns & Tax", icon: FileBarChart },
+  { to: "/customers", label: "Client Directory", icon: Building2 },
+  { to: "/gst-returns", label: "GST Tax Returns", icon: Landmark },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {
