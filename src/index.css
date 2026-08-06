@@ -16,9 +16,16 @@
 :root {
   /* Color Palette - Enterprise Healthcare Teal & Slate (Light Mode) */
   --bg: #f8fafc;
+  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #edf2f7 40%, #e2e8f0 100%);
   --surface: #ffffff;
   --surface-elevated: #f1f5f9;
   --surface-hover: #f8fafc;
+
+  /* Card Glass in Light Mode */
+  --card-bg-light: rgba(255, 255, 255, 0.88);
+  --card-border-light: rgba(226, 232, 240, 0.9);
+  --card-shadow-light: 0 10px 25px -5px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --card-hover-shadow-light: 0 16px 36px -6px rgba(15, 23, 42, 0.1), 0 0 20px rgba(15, 118, 110, 0.12);
 
   /* Executive Dark Sidebar */
   --sidebar-bg: #0b1329;
@@ -37,7 +44,7 @@
 
   /* Typography Colors */
   --text-main: #0f172a;
-  --text-muted: #64748b;
+  --text-muted: #475569;
   --text-light: #94a3b8;
   --text-inverse: #ffffff;
 
@@ -133,12 +140,13 @@ body,
 
 body {
   font-family: var(--font);
-  background-color: var(--bg);
+  background: var(--bg-gradient);
+  background-attachment: fixed;
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 button,
@@ -162,7 +170,7 @@ a {
 
 .main-content {
   flex: 1;
-  margin-left: 260px;
+  margin-left: 265px;
   padding: 32px 40px;
   min-width: 0;
   transition: margin-left 0.2s ease;
@@ -205,19 +213,49 @@ a {
   letter-spacing: -0.01em;
 }
 
-/* Sidebar Navigation */
+/* Sidebar Navigation (Frosted Glass) */
 .sidebar {
   width: 260px;
-  background-color: var(--sidebar-bg);
+  background: rgba(11, 19, 41, 0.65);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
   color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   position: fixed;
-  inset: 0 auto 0 0;
+  top: 16px;
+  bottom: 16px;
+  left: 16px;
   z-index: 100;
-  border-right: 1px solid var(--sidebar-border);
   overflow-y: auto;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] .sidebar {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .sidebar-logo-text h1 {
+  color: var(--text-main);
+}
+
+[data-theme="light"] .nav-link {
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .nav-link:hover {
+  background-color: rgba(15, 118, 110, 0.08);
+  color: var(--primary);
+}
+
+[data-theme="light"] .nav-link.active {
+  background: linear-gradient(90deg, rgba(15, 118, 110, 0.18) 0%, rgba(15, 118, 110, 0.05) 100%);
+  color: var(--primary);
 }
 
 .sidebar-brand {
@@ -426,20 +464,28 @@ a {
 }
 
 .stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
   padding: 20px 22px;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
+[data-theme="light"] .stat-card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-strong);
+  border-color: rgba(45, 212, 191, 0.35);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.45), 0 0 20px rgba(45, 212, 191, 0.12);
 }
 
 .stat-card-header {
@@ -496,13 +542,27 @@ a {
 
 /* Cards & Containers */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="light"] .card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.card:hover {
+  border-color: rgba(45, 212, 191, 0.3);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.45), 0 0 20px rgba(45, 212, 191, 0.1);
 }
 
 .card-header {
@@ -535,7 +595,9 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: var(--surface);
+  background: var(--surface-elevated);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   flex-wrap: wrap;
 }
 
@@ -1047,11 +1109,13 @@ tbody tr:last-child td {
 .login-card {
   width: 100%;
   max-width: 440px;
-  background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-xl);
   padding: 40px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .login-brand {
