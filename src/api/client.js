@@ -1,9 +1,18 @@
 const PRODUCTION_API_URL = "https://abros-healthcare.onrender.com";
 const AUTH_TOKEN_KEY = "abros_auth_token";
 
-const API_BASE =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? PRODUCTION_API_URL : "http://localhost:3000");
+function resolveApiBase() {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (import.meta.env.PROD) {
+    if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+      return envUrl;
+    }
+    return PRODUCTION_API_URL;
+  }
+  return envUrl || "http://localhost:3000";
+}
+
+const API_BASE = resolveApiBase();
 
 export function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY);
@@ -32,7 +41,7 @@ async function request(path, options = {}) {
     });
   } catch (err) {
     throw new Error(
-      "Unable to connect to production API. The server may be waking up—please wait 10 seconds and try again."
+      "Unable to connect to backend server. If using production, the server may be waking up—please wait 10 seconds and try again."
     );
   }
 
