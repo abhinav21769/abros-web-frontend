@@ -19,14 +19,22 @@ export function clearAuthToken() {
 
 async function request(path, options = {}) {
   const token = getAuthToken();
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-    ...options,
-  });
+  let res;
+
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+      ...options,
+    });
+  } catch (err) {
+    throw new Error(
+      "Unable to connect to production API. The server may be waking up—please wait 10 seconds and try again."
+    );
+  }
 
   const data = await res.json().catch(() => ({}));
 
