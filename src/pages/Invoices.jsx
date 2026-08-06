@@ -40,16 +40,19 @@ import {
   validateInvoiceForm,
 } from "../utils/formValidation";
 
-const emptyItem = {
-  medicine: "",
-  medicineName: "",
-  hsn: "",
-  gstRate: "5",
-  discount: "0",
-  quantity: "1",
-  free: "0",
-  rate: "",
-};
+function makeEmptyItem() {
+  return {
+    _key: Math.random().toString(36).substring(2, 9),
+    medicine: "",
+    medicineName: "",
+    hsn: "",
+    gstRate: "5",
+    discount: "0",
+    quantity: "1",
+    free: "0",
+    rate: "",
+  };
+}
 
 const emptyForm = {
   invoiceNumber: "",
@@ -62,7 +65,7 @@ const emptyForm = {
   status: "pending",
   paymentType: "credit",
   invoiceDate: getTodayDateInputValue(),
-  items: [{ ...emptyItem }],
+  items: [makeEmptyItem()],
 };
 
 const INVOICE_TABS = [
@@ -179,7 +182,7 @@ export default function Invoices() {
         return;
       }
       setEditing(null);
-      setForm({ ...emptyForm, invoiceNumber, items: [{ ...emptyItem }] });
+      setForm({ ...emptyForm, invoiceNumber, items: [makeEmptyItem()] });
       setFormErrors({});
       setModalOpen(true);
     } catch (err) {
@@ -215,6 +218,7 @@ export default function Invoices() {
         paymentType: item.paymentType || "credit",
         invoiceDate: toDateInputValue(item.invoiceDate),
         items: item.items.map((i) => ({
+          _key: i._id || Math.random().toString(36).substring(2, 9),
           medicine: i.medicine?._id || i.medicine || "",
           medicineName: i.medicineName,
           hsn: i.hsn || i.medicine?.hsn || "",
@@ -276,7 +280,7 @@ export default function Invoices() {
   const addItem = () => {
     setForm((prev) => ({
       ...prev,
-      items: [...prev.items, { ...emptyItem }],
+      items: [...prev.items, makeEmptyItem()],
     }));
   };
 
@@ -751,7 +755,7 @@ export default function Invoices() {
                 </div>
               ) : (
                 form.items.map((item, index) => (
-                  <div key={index} className="invoice-single-line-item">
+                  <div key={item._key || index} className="invoice-single-line-item">
                     <div className="input-group input-group-medicine">
                       <div className="input-group-header-row">
                         <label>Medicine *</label>

@@ -19,19 +19,22 @@ import {
   validatePurchaseForm,
 } from "../utils/formValidation";
 
-const emptyItem = {
-  medicine: "",
-  medicineName: "",
-  quantity: "1",
-  rate: "",
-};
+function makeEmptyItem() {
+  return {
+    _key: Math.random().toString(36).substring(2, 9),
+    medicine: "",
+    medicineName: "",
+    quantity: "1",
+    rate: "",
+  };
+}
 
 const emptyForm = {
   purchaseNumber: "",
   purchaseDate: getTodayDateInputValue(),
   supplier: "",
   notes: "",
-  items: [{ ...emptyItem }],
+  items: [makeEmptyItem()],
 };
 
 function formatCurrency(value) {
@@ -92,7 +95,7 @@ export default function Purchases() {
         toast.error("Add medicines to inventory before recording a purchase.");
         return;
       }
-      setForm({ ...emptyForm, purchaseNumber, items: [{ ...emptyItem }] });
+      setForm({ ...emptyForm, purchaseNumber, items: [makeEmptyItem()] });
       setFormErrors({});
       setModalOpen(true);
     } catch (err) {
@@ -135,7 +138,7 @@ export default function Purchases() {
   const addItem = () => {
     setForm((prev) => ({
       ...prev,
-      items: [...prev.items, { ...emptyItem }],
+      items: [...prev.items, makeEmptyItem()],
     }));
   };
 
@@ -346,7 +349,7 @@ export default function Purchases() {
 
             <div className="invoice-items">
               {form.items.map((item, index) => (
-                <div key={index} className="invoice-item-card">
+                <div key={item._key || index} className="invoice-item-card">
                   <div className="invoice-item-row invoice-item-row-top">
                     <div className="input-group">
                       <label>Medicine *</label>
