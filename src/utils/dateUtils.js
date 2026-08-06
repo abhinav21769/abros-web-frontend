@@ -1,6 +1,7 @@
 const IST = "Asia/Kolkata";
 
 function getCalendarParts(value, timeZone = IST) {
+  if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
 
@@ -47,7 +48,10 @@ export function formatCalendarDate(value) {
 }
 
 export function toInvoiceDatePayload(dateStr) {
-  const [year, month, day] = dateStr.split("T")[0].split("-");
+  if (!dateStr || typeof dateStr !== "string") return undefined;
+  const parts = dateStr.split("T")[0].split("-");
+  if (parts.length < 3) return undefined;
+  const [year, month, day] = parts;
   if (!year || !month || !day) return undefined;
   return `${year}-${month}-${day}`;
 }

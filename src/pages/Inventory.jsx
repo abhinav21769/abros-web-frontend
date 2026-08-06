@@ -8,6 +8,7 @@ import LottieLoader from "../components/ui/LottieLoader";
 import { medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { GST_RATE_OPTIONS } from "../utils/invoiceTax";
+import { toDateInputValue } from "../utils/dateUtils";
 import {
   clearFieldError,
   fieldClass,
@@ -105,12 +106,12 @@ export default function Inventory() {
   const openEdit = (item) => {
     setEditing(item);
     setForm({
-      name: item.name,
-      expiryDate: item.expiryDate.split("T")[0],
-      packagingType: item.packagingType,
-      mrp: String(item.mrp),
+      name: item.name || "",
+      expiryDate: toDateInputValue(item.expiryDate),
+      packagingType: item.packagingType || "",
+      mrp: String(item.mrp ?? ""),
       rate: String(item.rate ?? ""),
-      quantity: String(item.quantity),
+      quantity: String(item.quantity ?? 0),
       batchNumber: item.batchNumber || "",
       manufacturer: item.manufacturer || "",
       hsn: item.hsn || "",
@@ -138,9 +139,14 @@ export default function Inventory() {
 
     setSaving(true);
 
+    const parsedDate = new Date(form.expiryDate);
+    const validExpiry = Number.isNaN(parsedDate.getTime())
+      ? new Date().toISOString()
+      : parsedDate.toISOString();
+
     const payload = {
       name: form.name,
-      expiryDate: new Date(form.expiryDate).toISOString(),
+      expiryDate: validExpiry,
       packagingType: form.packagingType,
       mrp: Number(form.mrp),
       rate: Number(form.rate),
