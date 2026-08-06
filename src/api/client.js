@@ -54,9 +54,9 @@ async function request(path, options = {}) {
     }
   }
 
-  if (!res.ok) {
+  if (!res.ok || data.success === false) {
     const errorMessage =
-      data.error?.message || data.message || "Request failed";
+      data.error?.message || data.message || data.errorMessage || "Request failed";
     throw new Error(errorMessage);
   }
 

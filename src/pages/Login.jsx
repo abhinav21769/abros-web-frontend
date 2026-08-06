@@ -39,7 +39,9 @@ export default function Login() {
 
     try {
       const res = await login(username.trim(), password);
-      toast.success(res.message);
+      if (res?.message) {
+        toast.success(res.message);
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -54,7 +56,6 @@ export default function Login() {
           <BrandLogo size={48} />
           <div>
             <h1>Abros Healthcare</h1>
-            <p>Pharmaceutical Management ERP</p>
           </div>
         </div>
 
