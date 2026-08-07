@@ -48,7 +48,15 @@ function statusBadge(status) {
   );
 }
 
-function StatCard({ label, value, sub, valueStyle, icon, iconBg = "var(--surface-elevated)", iconColor = "var(--primary)" }) {
+function StatCard({
+  label,
+  value,
+  sub,
+  valueStyle,
+  icon,
+  iconBg = "var(--surface-elevated)",
+  iconColor = "var(--primary)",
+}) {
   return (
     <div className="stat-card">
       <div className="stat-card-header">
@@ -98,12 +106,22 @@ export default function Dashboard() {
 
   if (loadFailed || !inventory || !customers || !invoices) {
     return (
-      <div className="card" style={{ margin: "40px auto", maxWidth: 500, textAlign: "center" }}>
+      <div
+        className="card"
+        style={{ margin: "40px auto", maxWidth: 500, textAlign: "center" }}
+      >
         <div className="card-body" style={{ padding: "40px 24px" }}>
-          <AlertTriangle size={32} color="var(--warning)" style={{ marginBottom: 12 }} />
-          <h3 style={{ fontSize: "1.1rem", marginBottom: 6 }}>Dashboard Data Unavailable</h3>
+          <AlertTriangle
+            size={32}
+            color="var(--warning)"
+            style={{ marginBottom: 12 }}
+          />
+          <h3 style={{ fontSize: "1.1rem", marginBottom: 6 }}>
+            Dashboard Data Unavailable
+          </h3>
           <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
-            Unable to fetch real-time overview metrics. Please refresh or try again.
+            Unable to fetch real-time overview metrics. Please refresh or try
+            again.
           </p>
         </div>
       </div>
@@ -248,13 +266,17 @@ export default function Dashboard() {
                     {invoices.data.sales.recent.map((inv) => (
                       <tr key={inv._id}>
                         <td>
-                          <span style={{ fontWeight: 700, color: "var(--primary)" }}>
+                          <span
+                            style={{ fontWeight: 700, color: "var(--primary)" }}
+                          >
                             {inv.invoiceNumber}
                           </span>
                         </td>
                         <td>{inv.customer?.name || "—"}</td>
                         <td>{formatDate(inv.invoiceDate)}</td>
-                        <td style={{ fontWeight: 600 }}>{formatCurrency(inv.total)}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          {formatCurrency(inv.total)}
+                        </td>
                         <td>{statusBadge(inv.status)}</td>
                       </tr>
                     ))}
@@ -268,7 +290,10 @@ export default function Dashboard() {
         <div className="card">
           <div className="card-header">
             <h3>Recent Purchase Orders</h3>
-            <Link to="/invoices?type=purchase" className="btn btn-secondary btn-sm">
+            <Link
+              to="/invoices?type=purchase"
+              className="btn btn-secondary btn-sm"
+            >
               View All <ArrowUpRight size={14} />
             </Link>
           </div>
@@ -291,13 +316,17 @@ export default function Dashboard() {
                     {invoices.data.purchases.recent.map((inv) => (
                       <tr key={inv._id}>
                         <td>
-                          <span style={{ fontWeight: 700, color: "var(--accent)" }}>
+                          <span
+                            style={{ fontWeight: 700, color: "var(--accent)" }}
+                          >
                             {inv.invoiceNumber}
                           </span>
                         </td>
                         <td>{inv.supplier || "—"}</td>
                         <td>{formatDate(inv.invoiceDate)}</td>
-                        <td style={{ fontWeight: 600 }}>{formatCurrency(inv.total)}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          {formatCurrency(inv.total)}
+                        </td>
                         <td>{statusBadge(inv.status)}</td>
                       </tr>
                     ))}
@@ -334,7 +363,9 @@ export default function Dashboard() {
                     {inventory.data.expiringMedicines.list.map((med, i) => (
                       <tr key={i}>
                         <td style={{ fontWeight: 600 }}>{med.name}</td>
-                        <td style={{ color: "var(--warning)", fontWeight: 600 }}>
+                        <td
+                          style={{ color: "var(--warning)", fontWeight: 600 }}
+                        >
                           {formatDate(med.expiryDate)}
                         </td>
                         <td>{med.quantity} units</td>
@@ -356,7 +387,9 @@ export default function Dashboard() {
           </div>
           <div className="card-body">
             {inventory.data.expiredMedicines.list.map((med, i) => (
-              <div className="empty-state" key={i}>No expired medicines in inventory</div>
+              <div className="empty-state" key={i}>
+                No expired medicines in inventory
+              </div>
             ))}
           </div>
         </div>
