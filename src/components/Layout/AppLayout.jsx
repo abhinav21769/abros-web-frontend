@@ -30,20 +30,26 @@ export default function AppLayout() {
           onClick={() => setMenuOpen(true)}
           aria-label="Open menu"
         >
-          <Menu size={22} />
+          <Menu size={20} />
         </button>
+
         <div className="mobile-header-brand">
-          <BrandLogo size={32} />
-          <span>Abros Healthcare</span>
+          <div className="mobile-header-logo-glow">
+            <BrandLogo size={28} />
+          </div>
+          <span className="mobile-header-title">Abros Healthcare</span>
         </div>
+
         <button
           type="button"
           className="mobile-menu-btn"
           onClick={toggleTheme}
           aria-label="Toggle dark mode"
         >
-          {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+
+        <div className="mobile-header-accent-bar" />
       </header>
 
       {menuOpen && (

@@ -30,15 +30,19 @@ const MONTH_NAMES = [
 ];
 
 function formatCurrency(val) {
+  const num = Number(val);
+  if (val == null || isNaN(num)) return "₹0";
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(val || 0);
+  }).format(num);
 }
 
 function formatNumber(val) {
-  return new Intl.NumberFormat("en-IN").format(val || 0);
+  const num = Number(val);
+  if (val == null || isNaN(num)) return "0";
+  return new Intl.NumberFormat("en-IN").format(num);
 }
 
 function StatCard({
@@ -178,10 +182,13 @@ export default function ProductSales() {
     toast?.success?.(`Exported sales report for ${selectedYear} to CSV`);
   };
 
+  if (loading && !reportData.products.length) {
+    return <LottieLoader fullScreen message="Loading Product Sales analysis..." />;
+  }
+
   return (
     <FadeIn>
-      <div style={{ maxWidth: "1600px", margin: "0 auto", padding: "1.5rem" }}>
-        {/* Page Header */}
+      {/* Page Header */}
         <PageHeader
           title="Month-Wise Product Sales"
           heading="Month-Wise Product Sales"
@@ -231,7 +238,7 @@ export default function ProductSales() {
 
           <StatCard
             label="TOP PERFORMING PRODUCT"
-            value={reportData.summary.topProduct}
+            value={reportData.summary.topProduct || "—"}
             sub="Highest revenue contributor"
             icon={<Award size={20} />}
             iconBg="var(--warning-bg)"
@@ -240,7 +247,7 @@ export default function ProductSales() {
 
           <StatCard
             label="PEAK SALES MONTH"
-            value={reportData.summary.peakMonth}
+            value={reportData.summary.peakMonth || "—"}
             sub="Best monthly revenue period"
             icon={<Calendar size={20} />}
             iconBg="rgba(139, 92, 246, 0.15)"
@@ -622,7 +629,6 @@ export default function ProductSales() {
             </div>
           )}
         </div>
-      </div>
     </FadeIn>
   );
 }
