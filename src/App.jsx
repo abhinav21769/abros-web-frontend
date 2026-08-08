@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
+import ProductSales from "./pages/ProductSales";
 import Customers from "./pages/Customers";
 import GstReturns from "./pages/GstReturns";
 
@@ -24,6 +25,7 @@ export default function App() {
                   <Route index element={<Dashboard />} />
                   <Route path="invoices" element={<Invoices />} />
                   <Route path="inventory" element={<Inventory />} />
+                  <Route path="product-sales" element={<ProductSales />} />
                   <Route
                     path="purchases"
                     element={<Navigate to="/invoices?type=purchase" replace />}

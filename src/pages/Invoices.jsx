@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -9,6 +9,7 @@ import {
   Eye,
   Printer,
   Share2,
+  ChevronDown,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
@@ -26,6 +27,7 @@ import {
 } from "../utils/invoiceExport";
 import {
   formatCalendarDate,
+  formatDateTime,
   getTodayDateInputValue,
   toDateInputValue,
   toInvoiceDatePayload,
@@ -84,14 +86,151 @@ function formatCurrency(value) {
   }).format(Number(value) || 0);
 }
 
-function statusBadge(status) {
+function QuickStatusBadge({ item, onStatusChange }) {
+  const [open, setOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const status = item?.status || "pending";
+  const isPending = String(status).toLowerCase() === "pending";
+  const isPaid = String(status).toLowerCase() === "paid";
+  const paidDateVal = item?.paidAt || (isPaid ? (item?.updatedAt || item?.invoiceDate) : null);
+  const formattedDate = paidDateVal ? formatDateTime(paidDateVal) : "";
+
   const map = {
     paid: "badge-success",
     pending: "badge-warning",
     cancelled: "badge-danger",
   };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 10);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [open]);
+
+  // Non-pending statuses render standard badge without dropdown
+  if (!isPending) {
+    return (
+      <span
+        className={`badge ${map[status] || "badge-neutral"}${isPaid && formattedDate ? " badge-has-tooltip" : ""}`}
+        title={isPaid && formattedDate ? `Paid on: ${formattedDate}` : undefined}
+        style={isPaid ? { cursor: "pointer" } : undefined}
+      >
+        {status}
+        {isPaid && formattedDate && (
+          <span className="badge-tooltip">Paid on: {formattedDate}</span>
+        )}
+      </span>
+    );
+  }
+
+  const handleSelectStatus = async (newStatus) => {
+    setOpen(false);
+    if (newStatus === status) return;
+    setUpdating(true);
+    try {
+      await onStatusChange(item._id, newStatus);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
-    <span className={`badge ${map[status] || "badge-neutral"}`}>{status}</span>
+    <div
+      ref={dropdownRef}
+      style={{
+        position: "relative",
+        display: "inline-block",
+        zIndex: open ? 99999 : 1,
+      }}
+    >
+      <button
+        type="button"
+        className={`badge ${map[status] || "badge-neutral"}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        disabled={updating}
+        title="Click to change status"
+        style={{
+          border: "none",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "4px",
+          fontFamily: "inherit",
+        }}
+      >
+        <span>{updating ? "..." : status}</span>
+        <ChevronDown size={11} style={{ opacity: 0.8 }} />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            zIndex: 999999,
+            background: "var(--surface)",
+            border: "1px solid var(--border-strong, var(--border))",
+            borderRadius: "var(--radius-md)",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)",
+            padding: "4px",
+            minWidth: "120px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px",
+          }}
+        >
+          {["pending", "paid", "cancelled"].map((st) => (
+            <button
+              key={st}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectStatus(st);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "6px 10px",
+                fontSize: "0.78rem",
+                fontWeight: st === status ? 700 : 500,
+                borderRadius: "var(--radius-sm)",
+                border: "none",
+                background: st === status ? "var(--surface-elevated)" : "transparent",
+                color: "var(--text-main)",
+                cursor: "pointer",
+                textAlign: "left",
+                width: "100%",
+                textTransform: "capitalize",
+              }}
+            >
+              <span className={`badge ${map[st]}`} style={{ padding: "2px 6px", fontSize: "0.68rem" }}>
+                {st}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -378,6 +517,16 @@ export default function Invoices() {
     }
   };
 
+  const handleQuickStatusUpdate = async (id, newStatus) => {
+    try {
+      const res = await invoicesApi.update(id, { status: newStatus });
+      toast.success(res.message || `Status updated to ${newStatus}`);
+      fetchItems();
+    } catch (err) {
+      toast.error(err.message || "Failed to update status");
+    }
+  };
+
   const handlePrint = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
@@ -505,7 +654,12 @@ export default function Invoices() {
                       <td>{item.items.length}</td>
                       <td>{formatCurrency(item.total)}</td>
                       <td>{paymentTypeLabel(item.paymentType)}</td>
-                      <td>{statusBadge(item.status)}</td>
+                      <td>
+                        <QuickStatusBadge
+                          item={item}
+                          onStatusChange={handleQuickStatusUpdate}
+                        />
+                      </td>
                       <td>
                         <div className="actions-cell">
                           <button

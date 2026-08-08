@@ -709,6 +709,7 @@ a {
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  min-height: 220px;
 }
 
 table {
@@ -807,6 +808,51 @@ tbody tr:last-child td {
   background-color: var(--surface-elevated);
   color: var(--text-muted);
   border: 1px solid var(--border);
+}
+
+.badge-has-tooltip {
+  position: relative;
+}
+
+.badge-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background-color: #0f172a;
+  color: #ffffff;
+  text-align: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 999;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+
+.badge-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #0f172a transparent transparent transparent;
+}
+
+.badge-has-tooltip:hover .badge-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 /* Minimalist Executive Paginator */
@@ -1738,4 +1784,128 @@ select option {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* Month-Wise Product Sales Styles */
+.product-sales-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+  .product-sales-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .product-sales-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.product-matrix-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.product-matrix-wrap {
+  width: 100%;
+  overflow-x: auto;
+  position: relative;
+}
+
+.product-matrix-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.825rem;
+}
+
+.product-matrix-table th {
+  background: var(--surface-elevated);
+  color: var(--text-muted);
+  font-weight: 700;
+  border-bottom: 2px solid var(--border);
+  padding: 12px 10px;
+  white-space: nowrap;
+}
+
+.product-matrix-table td {
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 10px 12px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.product-matrix-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.product-matrix-table tbody tr:hover {
+  background-color: var(--surface-hover);
+}
+
+.product-matrix-table .sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  border-right: 2px solid var(--border);
+}
+
+.product-matrix-table th.sticky-col {
+  background: var(--surface-elevated);
+  color: var(--text-muted);
+}
+
+.product-matrix-table td.sticky-col {
+  background: var(--surface);
+  color: var(--text-main);
+}
+
+.product-matrix-table tbody tr:hover td.sticky-col {
+  background: var(--surface-hover);
+}
+
+.product-matrix-table tfoot tr {
+  background: var(--surface-elevated);
+  font-weight: 700;
+}
+
+.product-matrix-table tfoot td {
+  border-top: 2px solid var(--border);
+  color: var(--text-main);
+}
+
+.product-matrix-table tfoot td.sticky-col {
+  background: var(--surface-elevated);
+  color: var(--text-main);
+}
+
+.product-matrix-table .total-qty-col {
+  background: rgba(15, 118, 110, 0.05);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.product-matrix-table .total-rev-col {
+  background: rgba(15, 118, 110, 0.09);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .product-matrix-table .total-qty-col {
+  background: rgba(20, 184, 166, 0.12);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .product-matrix-table .total-rev-col {
+  background: rgba(20, 184, 166, 0.2);
+  color: #2dd4bf;
 }

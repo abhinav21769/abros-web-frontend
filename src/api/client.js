@@ -120,6 +120,10 @@ export const invoicesApi = {
 
 export const dashboardApi = {
   stats: (days = 30) => request(`/api/dashboard/stats?days=${days}`),
+  productSales: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/dashboard/product-sales${query ? `?${query}` : ""}`);
+  },
 };
 
 export const gstApi = {

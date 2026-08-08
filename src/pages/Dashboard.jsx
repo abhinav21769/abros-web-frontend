@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Pill,
@@ -13,12 +13,14 @@ import {
   ArrowUpRight,
   PlusCircle,
   FileText,
+  ChevronDown,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
 import { FadeIn } from "../components/ui/fade-in";
-import { dashboardApi } from "../api/client";
+import { dashboardApi, invoicesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { formatDateTime } from "../utils/dateUtils";
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", {
@@ -37,14 +39,29 @@ function formatDate(dateStr) {
   });
 }
 
-function statusBadge(status) {
+function statusBadge(status, item) {
   const map = {
     paid: "badge-success",
     pending: "badge-warning",
     cancelled: "badge-danger",
   };
+  const isPaid = String(status || "").toLowerCase() === "paid";
+  const paidDateVal = item?.paidAt || (isPaid ? (item?.updatedAt || item?.invoiceDate) : null);
+  const formattedDate = paidDateVal ? formatDateTime(paidDateVal) : "";
+
   return (
-    <span className={`badge ${map[status] || "badge-neutral"}`}>{status}</span>
+    <span
+      className={`badge ${map[status] || "badge-neutral"}${isPaid && formattedDate ? " badge-has-tooltip" : ""}`}
+      title={isPaid && formattedDate ? `Paid on: ${formattedDate}` : undefined}
+      style={isPaid ? { cursor: "pointer" } : undefined}
+    >
+      {status}
+      {isPaid && formattedDate && (
+        <span className="badge-tooltip">
+          Paid on: {formattedDate}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -84,7 +101,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     dashboardApi
       .stats(30)
       .then((res) => {
@@ -99,6 +116,20 @@ export default function Dashboard() {
       })
       .finally(() => setLoading(false));
   }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleQuickStatusUpdate = async (id, newStatus) => {
+    try {
+      const res = await invoicesApi.update(id, { status: newStatus });
+      toast.success(res.message || `Status updated to ${newStatus}`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || "Failed to update status");
+    }
+  };
 
   if (loading) {
     return <LottieLoader fullScreen message="Loading operational metrics..." />;
@@ -277,7 +308,7 @@ export default function Dashboard() {
                         <td style={{ fontWeight: 600 }}>
                           {formatCurrency(inv.total)}
                         </td>
-                        <td>{statusBadge(inv.status)}</td>
+                        <td>{statusBadge(inv.status, inv)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -327,7 +358,7 @@ export default function Dashboard() {
                         <td style={{ fontWeight: 600 }}>
                           {formatCurrency(inv.total)}
                         </td>
-                        <td>{statusBadge(inv.status)}</td>
+                        <td>{statusBadge(inv.status, inv)}</td>
                       </tr>
                     ))}
                   </tbody>
