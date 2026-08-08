@@ -24,6 +24,9 @@ function makeEmptyItem() {
     _key: Math.random().toString(36).substring(2, 9),
     medicine: "",
     medicineName: "",
+    batchNumber: "",
+    expiryDate: "",
+    mrp: "",
     quantity: "1",
     rate: "",
   };
@@ -121,10 +124,18 @@ export default function Purchases() {
       if (field === "medicine") {
         const med = medicines.find((m) => m._id === value);
         if (med) {
+          const batches = med.batches || [];
+          const primaryBatch = batches.find((b) => b.quantity > 0) || batches[0];
           nextItems[index].medicineName = med.name;
-          nextItems[index].rate = String(med.rate ?? med.ptr ?? "");
+          nextItems[index].batchNumber = primaryBatch?.batchNumber || med.batchNumber || "";
+          nextItems[index].expiryDate = primaryBatch?.expiryDate ? new Date(primaryBatch.expiryDate).toISOString().split("T")[0] : "";
+          nextItems[index].mrp = String(primaryBatch?.mrp ?? med.mrp ?? "");
+          nextItems[index].rate = String(primaryBatch?.rate ?? med.rate ?? med.ptr ?? "");
         } else {
           nextItems[index].medicineName = "";
+          nextItems[index].batchNumber = "";
+          nextItems[index].expiryDate = "";
+          nextItems[index].mrp = "";
           nextItems[index].rate = "";
         }
       }
@@ -179,10 +190,25 @@ export default function Purchases() {
       items: form.items.map((item) => ({
         medicine: item.medicine,
         medicineName: item.medicineName,
+        batchNumber: item.batchNumber || undefined,
+        expiryDate: item.expiryDate || undefined,
+        mrp: item.mrp ? Number(item.mrp) : undefined,
         quantity: Number(item.quantity),
         rate: Number(item.rate),
       })),
     };
+
+    try {
+      const res = await purchasesApi.create(payload);
+      toast.success(res.message);
+      setModalOpen(false);
+      fetchItems();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
     try {
       const res = await purchasesApi.create(payload);

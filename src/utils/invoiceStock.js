@@ -21,7 +21,17 @@ export function getAvailableStockForLine({
   const medicine = medicines.find((med) => med._id === medicineId);
   if (!medicine) return 0;
 
-  let available = Number(medicine.quantity) || 0;
+  const selectedBatchNum = item?.batchNumber?.trim();
+  let available = 0;
+
+  if (selectedBatchNum && medicine.batches && medicine.batches.length > 0) {
+    const batch = medicine.batches.find(
+      (b) => b.batchNumber.toLowerCase() === selectedBatchNum.toLowerCase(),
+    );
+    available = batch ? Number(batch.quantity) || 0 : 0;
+  } else {
+    available = Number(medicine.quantity) || 0;
+  }
 
   const invoiceWasActive =
     editingInvoice && editingInvoice.status !== "cancelled";
@@ -30,7 +40,9 @@ export function getAvailableStockForLine({
   if (invoiceWasActive && formIsActive) {
     editingInvoice.items.forEach((orig) => {
       if (getMedicineId(orig.medicine) === medicineId) {
-        available += getLineUnits(orig);
+        if (!selectedBatchNum || (orig.batchNumber && orig.batchNumber.toLowerCase() === selectedBatchNum.toLowerCase())) {
+          available += getLineUnits(orig);
+        }
       }
     });
   }
@@ -38,7 +50,9 @@ export function getAvailableStockForLine({
   formItems.forEach((line, index) => {
     if (index === lineIndex) return;
     if (getMedicineId(line.medicine) === medicineId) {
-      available -= getLineUnits(line);
+      if (!selectedBatchNum || (line.batchNumber && line.batchNumber.toLowerCase() === selectedBatchNum.toLowerCase())) {
+        available -= getLineUnits(line);
+      }
     }
   });
 

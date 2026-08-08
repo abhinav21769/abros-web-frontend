@@ -114,6 +114,7 @@ export default function Ledger() {
                     <th>Date</th>
                     <th>Type</th>
                     <th>Medicine</th>
+                    <th>Batch No.</th>
                     <th>Change</th>
                     <th>Balance</th>
                     <th>Reference</th>
@@ -125,6 +126,9 @@ export default function Ledger() {
                       <td>{formatDate(entry.createdAt)}</td>
                       <td>{typeBadge(entry.type)}</td>
                       <td>{entry.medicineName}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
+                        {entry.batchNumber || entry.medicine?.batchNumber || "—"}
+                      </td>
                       <td
                         className={
                           entry.quantityChange >= 0

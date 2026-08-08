@@ -48,6 +48,9 @@ function makeEmptyItem() {
     _key: Math.random().toString(36).substring(2, 9),
     medicine: "",
     medicineName: "",
+    batchNumber: "",
+    expiryDate: "",
+    mrp: "",
     hsn: "",
     gstRate: "5",
     discount: "0",
@@ -466,6 +469,9 @@ export default function Invoices() {
           _key: i._id || Math.random().toString(36).substring(2, 9),
           medicine: i.medicine?._id || i.medicine || "",
           medicineName: i.medicineName,
+          batchNumber: i.batchNumber || i.medicine?.batchNumber || "",
+          expiryDate: i.expiryDate ? toDateInputValue(i.expiryDate) : (i.medicine?.expiryDate ? toDateInputValue(i.medicine.expiryDate) : ""),
+          mrp: String(i.mrp ?? i.medicine?.mrp ?? ""),
           hsn: i.hsn || i.medicine?.hsn || "",
           gstRate: String(i.gstRate ?? i.medicine?.gstRate ?? 5),
           discount: String(i.discount ?? 0),
@@ -505,15 +511,35 @@ export default function Invoices() {
         const med = medicines.find((m) => m._id === value);
         const type = editing?.invoiceType || invoiceType;
         if (med) {
+          const batches = med.batches || [];
+          const activeBatch = batches.find((b) => b.quantity > 0) || batches[0];
           items[index].medicineName = med.name;
-          items[index].rate = String(getMedicineDefaultRate(med, type));
+          items[index].batchNumber = activeBatch?.batchNumber || med.batchNumber || "";
+          items[index].expiryDate = activeBatch?.expiryDate ? toDateInputValue(activeBatch.expiryDate) : (med.expiryDate ? toDateInputValue(med.expiryDate) : "");
+          items[index].mrp = String(activeBatch?.mrp ?? med.mrp ?? "");
+          items[index].rate = String(activeBatch?.rate ?? getMedicineDefaultRate(med, type));
           items[index].hsn = med.hsn || "";
           items[index].gstRate = String(med.gstRate ?? 5);
         } else {
           items[index].medicineName = "";
+          items[index].batchNumber = "";
+          items[index].expiryDate = "";
+          items[index].mrp = "";
           items[index].rate = "";
           items[index].hsn = "";
           items[index].gstRate = "5";
+        }
+      }
+
+      if (field === "batchNumber") {
+        const med = medicines.find((m) => m._id === items[index].medicine);
+        if (med && med.batches && med.batches.length > 0) {
+          const selectedBatch = med.batches.find((b) => b.batchNumber === value);
+          if (selectedBatch) {
+            items[index].expiryDate = toDateInputValue(selectedBatch.expiryDate);
+            items[index].mrp = String(selectedBatch.mrp ?? "");
+            items[index].rate = String(selectedBatch.rate ?? items[index].rate);
+          }
         }
       }
 
@@ -573,6 +599,9 @@ export default function Invoices() {
       items: form.items.map((item) => ({
         medicine: item.medicine,
         medicineName: item.medicineName,
+        batchNumber: item.batchNumber || undefined,
+        expiryDate: item.expiryDate || undefined,
+        mrp: item.mrp != null && item.mrp !== "" ? Number(item.mrp) : undefined,
         hsn: item.hsn || undefined,
         discount: Number(item.discount) || 0,
         gstRate: Number(item.gstRate) || 5,
@@ -1090,6 +1119,36 @@ export default function Invoices() {
                       <FieldError
                         message={itemFieldError(index, "medicine")}
                       />
+                    </div>
+
+                    <div className="input-group input-group-hsn">
+                      <label>Batch *</label>
+                      {!formIsPurchase ? (
+                        <select
+                          value={item.batchNumber}
+                          onChange={(e) =>
+                            handleItemChange(index, "batchNumber", e.target.value)
+                          }
+                          disabled={!item.medicine}
+                        >
+                          <option value="">Auto (FEFO)</option>
+                          {medicines
+                            .find((m) => m._id === item.medicine)
+                            ?.batches?.map((b) => (
+                              <option key={b._id || b.batchNumber} value={b.batchNumber}>
+                                {b.batchNumber} (Qty: {b.quantity}, Rate: ₹{b.rate})
+                              </option>
+                            ))}
+                        </select>
+                      ) : (
+                        <input
+                          value={item.batchNumber}
+                          onChange={(e) =>
+                            handleItemChange(index, "batchNumber", e.target.value)
+                          }
+                          placeholder="e.g. B-101"
+                        />
+                      )}
                     </div>
 
                     <div className="input-group input-group-hsn">
