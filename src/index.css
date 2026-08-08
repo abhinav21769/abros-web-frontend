@@ -132,21 +132,27 @@
   --info-border: rgba(96, 165, 250, 0.3);
 }
 
-html,
-body,
-#root {
-  height: 100%;
+html {
+  background-color: var(--bg);
+  min-height: 100%;
 }
 
 body {
   font-family: var(--font);
-  background: var(--bg-gradient);
+  background-color: var(--bg);
+  background-image: var(--bg-gradient);
   background-attachment: fixed;
   color: var(--text-main);
   line-height: 1.5;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.2s ease, color 0.2s ease;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: var(--bg);
 }
 
 button,
