@@ -10,6 +10,7 @@ import {
   Printer,
   Share2,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
@@ -228,6 +229,110 @@ function QuickStatusBadge({ item, onStatusChange }) {
               </span>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerSearchSelect({ customers, value, onChange, hasError }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+
+  const selectedCustomer = useMemo(
+    () => customers.find((c) => c._id === value),
+    [customers, value]
+  );
+
+  const filteredCustomers = useMemo(() => {
+    if (!search.trim()) return customers;
+    const term = search.toLowerCase().trim();
+    return customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(term) ||
+        (c.contact && c.contact.toLowerCase().includes(term)) ||
+        (c.gstin && c.gstin.toLowerCase().includes(term))
+    );
+  }, [customers, search]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div ref={dropdownRef} className="searchable-select-wrap">
+      <button
+        type="button"
+        className={`searchable-select-trigger ${hasError ? "has-error" : ""}`}
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        <span>
+          {selectedCustomer
+            ? `${selectedCustomer.name}${selectedCustomer.contact ? ` (${selectedCustomer.contact})` : ""}`
+            : "Select customer..."}
+        </span>
+        <Search size={15} className="searchable-select-icon" />
+      </button>
+
+      {isOpen && (
+        <div className="searchable-select-dropdown">
+          <div className="searchable-select-search-box">
+            <Search size={14} className="searchable-select-search-icon" />
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search customer by name, phone, GSTIN..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="searchable-select-input"
+            />
+            {search && (
+              <button
+                type="button"
+                className="searchable-select-clear"
+                onClick={() => setSearch("")}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          <div className="searchable-select-options">
+            {filteredCustomers.length === 0 ? (
+              <div className="searchable-select-no-results">
+                No customer found matching "{search}"
+              </div>
+            ) : (
+              filteredCustomers.map((c) => (
+                <button
+                  key={c._id}
+                  type="button"
+                  className={`searchable-select-option ${c._id === value ? "is-selected" : ""}`}
+                  onClick={() => {
+                    onChange({ target: { name: "customer", value: c._id } });
+                    setIsOpen(false);
+                  }}
+                >
+                  <div className="searchable-select-option-main">{c.name}</div>
+                  {(c.contact || c.gstin) && (
+                    <div className="searchable-select-option-sub">
+                      {[c.contact, c.gstin ? `GST: ${c.gstin}` : null]
+                        .filter(Boolean)
+                        .join(" • ")}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -868,19 +973,12 @@ export default function Invoices() {
               ) : (
                 <div className="input-group">
                   <label>Customer *</label>
-                  <select
-                    name="customer"
+                  <CustomerSearchSelect
+                    customers={customers}
                     value={form.customer}
                     onChange={handleChange}
-                    className={fieldClass(formErrors, "customer")}
-                  >
-                    <option value="">Select customer</option>
-                    {customers.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                    hasError={Boolean(formErrors.customer)}
+                  />
                   <FieldError message={formErrors.customer} />
                 </div>
               )}
