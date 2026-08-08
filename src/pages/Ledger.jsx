@@ -41,13 +41,14 @@ export default function Ledger() {
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [loading, setLoading] = useState(true);
 
   const fetchItems = useCallback(() => {
     setLoading(true);
-    const params = { page, limit: 10 };
+    const params = { page, limit };
     if (search) params.search = search;
     if (type) params.type = type;
 
@@ -59,7 +60,7 @@ export default function Ledger() {
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search, type, toast]);
+  }, [page, limit, search, type, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -146,6 +147,11 @@ export default function Ledger() {
               pagination={pagination}
               page={page}
               onPageChange={setPage}
+              limit={limit}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
+              }}
               itemLabel="entries"
             />
           </>

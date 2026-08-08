@@ -27,6 +27,7 @@ export default function Customers() {
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -37,7 +38,7 @@ export default function Customers() {
 
   const fetchItems = useCallback(() => {
     setLoading(true);
-    const params = { page, limit: 10 };
+    const params = { page, limit };
     if (search) params.name = search;
 
     customersApi
@@ -48,7 +49,7 @@ export default function Customers() {
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search, toast]);
+  }, [page, limit, search, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -205,6 +206,11 @@ export default function Customers() {
               pagination={pagination}
               page={page}
               onPageChange={setPage}
+              limit={limit}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
+              }}
               itemLabel="customers"
             />
           </>

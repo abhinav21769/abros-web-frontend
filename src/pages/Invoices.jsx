@@ -255,6 +255,7 @@ export default function Invoices() {
   const [customers, setCustomers] = useState([]);
   const [medicines, setMedicines] = useState([]);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -275,7 +276,7 @@ export default function Invoices() {
 
   const fetchItems = useCallback(() => {
     setLoading(true);
-    const params = { page, limit: 10, invoiceType };
+    const params = { page, limit, invoiceType };
     if (search) params.invoiceNumber = search;
 
     invoicesApi
@@ -286,7 +287,7 @@ export default function Invoices() {
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, search, invoiceType, toast]);
+  }, [page, limit, search, invoiceType, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -720,6 +721,11 @@ export default function Invoices() {
               pagination={pagination}
               page={page}
               onPageChange={setPage}
+              limit={limit}
+              onLimitChange={(newLimit) => {
+                setLimit(newLimit);
+                setPage(1);
+              }}
               itemLabel="invoices"
             />
           </>

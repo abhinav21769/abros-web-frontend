@@ -30,20 +30,44 @@ export default function Pagination({
   pagination,
   page,
   onPageChange,
+  limit,
+  onLimitChange,
   itemLabel = "items",
 }) {
   if (!pagination || pagination.totalItems === 0) return null;
 
   const { totalPages, totalItems, itemsPerPage } = pagination;
-  const start = (page - 1) * itemsPerPage + 1;
-  const end = Math.min(page * itemsPerPage, totalItems);
+  const currentLimit = limit || itemsPerPage || 10;
+  const start = (page - 1) * currentLimit + 1;
+  const end = Math.min(page * currentLimit, totalItems);
   const pages = getVisiblePages(page, totalPages);
 
   return (
     <div className="pagination">
-      <span className="pagination-summary">
-        {start}–{end} of {totalItems} {itemLabel}
-      </span>
+      <div className="pagination-info">
+        <span className="pagination-summary">
+          {start}–{end} of {totalItems} {itemLabel}
+        </span>
+        {onLimitChange && (
+          <div className="pagination-limit-wrap">
+            <span className="pagination-limit-label">Per page:</span>
+            <select
+              className="pagination-limit-select"
+              value={currentLimit}
+              onChange={(e) => {
+                const newLimit = Number(e.target.value);
+                onLimitChange(newLimit);
+              }}
+              aria-label="Items per page"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        )}
+      </div>
 
       <div className="pagination-controls">
         <button
