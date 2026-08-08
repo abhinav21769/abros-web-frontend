@@ -1228,6 +1228,16 @@ select option {
   width: 100%;
 }
 
+.input-group input[readonly],
+.input-group input:disabled,
+.input-group select:disabled {
+  background-color: var(--surface-elevated);
+  color: var(--text-main);
+  opacity: 0.8;
+  cursor: not-allowed;
+  border-color: var(--border);
+}
+
 .input-group input:focus,
 .input-group textarea:focus {
   outline: none;

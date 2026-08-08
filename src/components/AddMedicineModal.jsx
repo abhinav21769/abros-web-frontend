@@ -184,10 +184,6 @@ export default function AddMedicineModal({ onClose, onCreated }) {
             type="text"
             value={form.mrp ? formatCurrency(calcPtr(form.mrp)) : "—"}
             readOnly
-            style={{
-              background: "var(--bg-muted, #f4f4f5)",
-              cursor: "not-allowed",
-            }}
           />
         </div>
         <div className="input-group">
