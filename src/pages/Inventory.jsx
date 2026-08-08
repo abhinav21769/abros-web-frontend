@@ -391,17 +391,15 @@ export default function Inventory() {
                         <tr>
                           <td>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              {batchCount > 1 && (
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => toggleRow(item._id)}
-                                  style={{ padding: 2, minWidth: "auto" }}
-                                  title="Toggle batch list"
-                                >
-                                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => toggleRow(item._id)}
+                                style={{ padding: 2, minWidth: "auto" }}
+                                title="Toggle batch list"
+                              >
+                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </button>
                               <div>
                                 <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.9rem" }}>
                                   {item.name}
@@ -428,7 +426,9 @@ export default function Inventory() {
                                 {batchCount} Batches
                               </span>
                             ) : (
-                              item.batchNumber || "—"
+                              <span style={{ cursor: "pointer" }} onClick={() => toggleRow(item._id)}>
+                                {item.batchNumber || "—"}
+                              </span>
                             )}
                           </td>
                           <td>{formatDate(item.expiryDate)}</td>
@@ -459,7 +459,7 @@ export default function Inventory() {
                             </div>
                           </td>
                         </tr>
-                        {isExpanded && batchCount > 1 && (
+                        {isExpanded && (
                           <tr style={{ background: "var(--surface-elevated, #f8fafc)" }}>
                             <td colSpan={12} style={{ padding: "12px 16px" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -701,6 +701,21 @@ export default function Inventory() {
                   />
                   <FieldError message={formErrors.quantity} />
                 </div>
+                {editing && (
+                  <div className="full-width" style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setModalOpen(false);
+                        openAddBatch(editing);
+                      }}
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      <Plus size={14} /> Add Another Batch To This Medicine
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <div
