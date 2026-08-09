@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start:dev": "vite",
+    "start:prod": "vite build && vite preview --port 4173",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
