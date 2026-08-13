@@ -1,6 +1,6 @@
 const IST = "Asia/Kolkata";
 
-function getCalendarParts(value, timeZone = IST) {
+export function getCalendarParts(value, timeZone = IST) {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -18,6 +18,12 @@ function getCalendarParts(value, timeZone = IST) {
     month: get("month"),
     day: get("day"),
   };
+}
+
+export function getInvoiceMonthNumber(value) {
+  const parts = getCalendarParts(value);
+  if (!parts) return null;
+  return Number(parts.month);
 }
 
 export function getTodayDateInputValue() {

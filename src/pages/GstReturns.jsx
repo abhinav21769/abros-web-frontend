@@ -6,7 +6,7 @@ import LottieLoader from "../components/ui/LottieLoader";
 import { FadeIn } from "../components/ui/fade-in";
 import { gstApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
-import { formatCalendarDate } from "../utils/dateUtils";
+import { formatCalendarDate, getInvoiceMonthNumber } from "../utils/dateUtils";
 
 const QUARTER_OPTIONS = [
   { value: 1, label: "Q1 (Apr – Jun)" },
@@ -15,21 +15,32 @@ const QUARTER_OPTIONS = [
   { value: 4, label: "Q4 (Jan – Mar)" },
 ];
 
-const MONTH_OPTIONS = [
-  { value: "all", label: "All Months in Quarter" },
-  { value: "4", label: "April" },
-  { value: "5", label: "May" },
-  { value: "6", label: "June" },
-  { value: "7", label: "July" },
-  { value: "8", label: "August" },
-  { value: "9", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
-  { value: "1", label: "January" },
-  { value: "2", label: "February" },
-  { value: "3", label: "March" },
-];
+const QUARTER_MONTH_MAP = {
+  1: [
+    { value: "all", label: "All Months in Q1" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+  ],
+  2: [
+    { value: "all", label: "All Months in Q2" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+  ],
+  3: [
+    { value: "all", label: "All Months in Q3" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ],
+  4: [
+    { value: "all", label: "All Months in Q4" },
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+  ],
+};
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", {
@@ -155,18 +166,22 @@ export default function GstReturns() {
     setSelectedMonth("all"); // Reset month filter on quarter change
   }, [loadSummary]);
 
-  // Filter invoices by month
+  // Current quarter month options
+  const monthOptions = useMemo(() => {
+    return QUARTER_MONTH_MAP[quarter] || QUARTER_MONTH_MAP[1];
+  }, [quarter]);
+
+  // Filter invoices by month using timezone-correct calendar month
   const monthFilteredInvoices = useMemo(() => {
     if (!data?.invoices) return [];
     if (selectedMonth === "all") return data.invoices;
     return data.invoices.filter((inv) => {
-      const date = new Date(inv.invoiceDate);
-      const m = date.getUTCMonth() + 1;
+      const m = getInvoiceMonthNumber(inv.invoiceDate);
       return String(m) === String(selectedMonth);
     });
   }, [data, selectedMonth]);
 
-  // Counts for tabs based on month selection
+  // Counts for sub-tabs
   const counts = useMemo(() => {
     const total = monthFilteredInvoices.length;
     const b2b = monthFilteredInvoices.filter((i) => i.registrationType === "gst").length;
@@ -273,7 +288,7 @@ export default function GstReturns() {
       </FadeIn>
 
       <FadeIn className="card" delay={0.15}>
-        {/* Table Header Controls: Sub-Tabs + Month Selector */}
+        {/* Table Controls: Sub-Tabs + Quarter & Month Selectors */}
         <div
           style={{
             display: "flex",
@@ -282,7 +297,7 @@ export default function GstReturns() {
             padding: "16px 20px 12px",
             borderBottom: "1px solid var(--border-subtle)",
             flexWrap: "wrap",
-            gap: "12px",
+            gap: "14px",
           }}
         >
           <div className="page-tabs" style={{ margin: 0, padding: 0 }}>
@@ -302,32 +317,61 @@ export default function GstReturns() {
             ))}
           </div>
 
-          {/* Month Filter Selector */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Filter size={15} style={{ color: "var(--primary)" }} />
-            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
-              Filter Month:
-            </span>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              style={{
-                padding: "6px 28px 6px 12px",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--border)",
-                background: "var(--bg)",
-                color: "var(--text-main)",
-                cursor: "pointer",
-              }}
-            >
-              {MONTH_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+            {/* Filter Quarter Selector */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ fontSize: "0.825rem", fontWeight: 600, color: "var(--text-muted)" }}>
+                Quarter:
+              </span>
+              <select
+                value={quarter}
+                onChange={(e) => setQuarter(Number(e.target.value))}
+                style={{
+                  padding: "5px 24px 5px 10px",
+                  fontSize: "0.825rem",
+                  fontWeight: 600,
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  color: "var(--text-main)",
+                  cursor: "pointer",
+                }}
+              >
+                {QUARTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Month Selector */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Filter size={14} style={{ color: "var(--primary)" }} />
+              <span style={{ fontSize: "0.825rem", fontWeight: 600, color: "var(--text-muted)" }}>
+                Filter Month:
+              </span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                style={{
+                  padding: "5px 24px 5px 10px",
+                  fontSize: "0.825rem",
+                  fontWeight: 600,
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  color: "var(--text-main)",
+                  cursor: "pointer",
+                }}
+              >
+                {monthOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
