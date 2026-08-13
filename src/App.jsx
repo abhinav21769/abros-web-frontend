@@ -9,10 +9,11 @@ import Dashboard from "./pages/Dashboard";
 import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
 import ProductSales from "./pages/ProductSales";
-import CustomerSales from "./pages/CustomerSales";
+// L-2 FIX: Removed dead CustomerSales import (route redirects to CustomerProductSales)
 import CustomerProductSales from "./pages/CustomerProductSales";
 import Customers from "./pages/Customers";
 import GstReturns from "./pages/GstReturns";
+import Ledger from "./pages/Ledger"; // L-1 FIX: Import previously missing Ledger page
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
                   />
                   <Route path="customers" element={<Customers />} />
                   <Route path="gst-returns" element={<GstReturns />} />
+                  <Route path="ledger" element={<Ledger />} /> {/* L-1 FIX: Register Ledger route */}
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

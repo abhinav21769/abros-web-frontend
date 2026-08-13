@@ -1,4 +1,4 @@
-const PRODUCTION_API_URL = "https://abros-healthcare.onrender.com";
+// H-2 FIX: No hardcoded production URL — require VITE_API_URL to be set explicitly
 const AUTH_TOKEN_KEY = "abros_auth_token";
 
 function resolveApiBase() {
@@ -7,7 +7,11 @@ function resolveApiBase() {
     if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
       return envUrl;
     }
-    return PRODUCTION_API_URL;
+    // Fail loudly so the missing config is caught immediately, not silently
+    throw new Error(
+      "[CONFIG ERROR] VITE_API_URL must be set to a production backend URL. " +
+      "Do not use localhost in production builds."
+    );
   }
   return envUrl || "http://localhost:3000";
 }

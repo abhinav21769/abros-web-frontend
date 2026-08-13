@@ -1,17 +1,21 @@
 import * as Sentry from "@sentry/react";
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+const isProduction = import.meta.env.PROD;
 
-if (sentryDsn) {
-  try {
-    Sentry.init({
-      dsn: sentryDsn,
-      integrations: [Sentry.browserTracingIntegration()],
-      tracesSampleRate: 1.0,
-    });
-    console.log("🛡️ Sentry frontend crash tracking enabled.");
-  } catch (err) {
-    console.warn("⚠️ Failed to initialize Sentry on frontend:", err);
+// M-4 FIX: Export explicit init function instead of running as module side-effect
+export function initLogger() {
+  if (sentryDsn) {
+    try {
+      Sentry.init({
+        dsn: sentryDsn,
+        integrations: [Sentry.browserTracingIntegration()],
+        // M-2 FIX: Lower sample rate in production
+        tracesSampleRate: isProduction ? 0.1 : 1.0,
+      });
+    } catch (err) {
+      console.warn("⚠️ Failed to initialize Sentry on frontend:", err);
+    }
   }
 }
 

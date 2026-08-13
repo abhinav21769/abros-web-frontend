@@ -75,8 +75,9 @@ export function validateLoginForm({ username, password }) {
 
   const passwordError = required(password, "Password");
   if (passwordError) errors.password = passwordError;
-  else if (password.length < 4) {
-    errors.password = "Password must be at least 4 characters.";
+  // L-3 FIX: Match backend User model minimum (6 chars) — was incorrectly 4
+  else if (password.length < 6) {
+    errors.password = "Password must be at least 6 characters.";
   }
 
   return errors;
