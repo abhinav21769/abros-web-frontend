@@ -7,7 +7,6 @@ import {
   Layers,
   Truck,
   Building2,
-  BookOpen,
   Landmark,
   X,
   LogOut,
@@ -31,7 +30,6 @@ const navItems = [
     invoiceTab: "purchase",
   },
   { to: "/customers", label: "Customers", icon: Building2 },
-  { to: "/ledger", label: "Stock Ledger", icon: BookOpen },
   { to: "/gst-returns", label: "GST Returns", icon: Landmark },
 ];
 
