@@ -7,6 +7,7 @@ import {
   Layers,
   Truck,
   Building2,
+  BookOpen,
   Landmark,
   X,
   LogOut,
@@ -19,18 +20,19 @@ import { useTheme } from "../../context/ThemeContext";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: Activity, end: true },
-  { to: "/invoices", label: "Sales Invoices", icon: ReceiptText, invoiceTab: "sale" },
-  { to: "/inventory", label: "Medicine Inventory", icon: Pill },
+  { to: "/invoices", label: "Invoices", icon: ReceiptText, invoiceTab: "sale" },
+  { to: "/inventory", label: "Inventory", icon: Pill },
   { to: "/product-sales", label: "Product Sales", icon: BarChart3 },
   { to: "/customer-product-sales", label: "Customer Sales", icon: Layers },
   {
     to: "/invoices",
-    label: "Purchase Orders",
+    label: "Purchases",
     icon: Truck,
     invoiceTab: "purchase",
   },
-  { to: "/customers", label: "Client Directory", icon: Building2 },
-  { to: "/gst-returns", label: "GST Tax Returns", icon: Landmark },
+  { to: "/customers", label: "Customers", icon: Building2 },
+  { to: "/ledger", label: "Stock Ledger", icon: BookOpen },
+  { to: "/gst-returns", label: "GST Returns", icon: Landmark },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {
