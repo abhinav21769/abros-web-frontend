@@ -157,8 +157,13 @@ export default function ProductSales() {
 
     const headers = [
       "Product Name",
-      ...QUARTER_HEADERS.flatMap((q) => [`${q.label} Qty`, `${q.label} Revenue (Rs)`]),
+      ...QUARTER_HEADERS.flatMap((q) => [
+        `${q.label} Qty`,
+        `${q.label} Free Qty`,
+        `${q.label} Revenue (Rs)`,
+      ]),
       "Total Qty Sold",
+      "Total Free Qty",
       "Total Revenue (Rs)",
     ];
 
@@ -166,24 +171,28 @@ export default function ProductSales() {
       const qData = p.quarterlyData || p.monthlyData || [];
       const quarterCols = qData.flatMap((q) => [
         q.quantity || 0,
+        q.free || 0,
         q.revenue || 0,
       ]);
       return [
         `"${(p.medicineName || "").replace(/"/g, '""')}"`,
         ...quarterCols,
         p.totalQuantity || 0,
+        p.totalFree || 0,
         p.totalRevenue || 0,
       ];
     });
 
     const summaryCols = (reportData.quarterlyGrandTotals || []).flatMap((q) => [
       q.quantity || 0,
+      q.free || 0,
       q.revenue || 0,
     ]);
     rows.push([
       '"QUARTERLY GRAND TOTAL"',
       ...summaryCols,
       reportData.summary.grandTotalQuantity || 0,
+      reportData.summary.grandTotalFree || 0,
       reportData.summary.grandTotalRevenue || 0,
     ]);
 
@@ -577,9 +586,25 @@ export default function ProductSales() {
 
                             {viewMode === "quantity" && (
                               <span>
-                                {hasSales
-                                  ? `${formatNumber(q.quantity)}`
-                                  : "—"}
+                                {hasSales ? (
+                                  <>
+                                    <span>{formatNumber(q.quantity)}</span>
+                                    {q.free > 0 && (
+                                      <span
+                                        style={{
+                                          fontSize: "0.75rem",
+                                          color: "var(--success)",
+                                          fontWeight: 600,
+                                          marginLeft: "4px",
+                                        }}
+                                      >
+                                        (+{formatNumber(q.free)} Free)
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  "—"
+                                )}
                               </span>
                             )}
 
@@ -602,6 +627,17 @@ export default function ProductSales() {
                                     }}
                                   >
                                     {formatNumber(q.quantity)} pcs
+                                    {q.free > 0 && (
+                                      <span
+                                        style={{
+                                          color: "var(--success)",
+                                          fontWeight: 600,
+                                          marginLeft: "4px",
+                                        }}
+                                      >
+                                        (+{formatNumber(q.free)} Free)
+                                      </span>
+                                    )}
                                   </span>
                                 )}
                               </div>
@@ -612,7 +648,18 @@ export default function ProductSales() {
 
                       {/* Total Qty */}
                       <td className="total-qty-col" style={{ textAlign: "right" }}>
-                        {formatNumber(prod.totalQuantity)} Pcs
+                        <div>{formatNumber(prod.totalQuantity)} Pcs</div>
+                        {prod.totalFree > 0 && (
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "var(--success)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            +{formatNumber(prod.totalFree)} Free
+                          </div>
+                        )}
                       </td>
 
                       {/* Total Revenue */}
@@ -639,7 +686,22 @@ export default function ProductSales() {
                       style={{ textAlign: "right", fontWeight: 700 }}
                     >
                       {viewMode === "revenue" && formatCurrency(q.revenue)}
-                      {viewMode === "quantity" && formatNumber(q.quantity)}
+                      {viewMode === "quantity" && (
+                        <div>
+                          <div>{formatNumber(q.quantity)}</div>
+                          {q.free > 0 && (
+                            <div
+                              style={{
+                                fontSize: "0.72rem",
+                                color: "var(--success)",
+                                fontWeight: 600,
+                              }}
+                            >
+                              +{formatNumber(q.free)} Free
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {viewMode === "both" && (
                         <div
                           style={{
@@ -656,6 +718,17 @@ export default function ProductSales() {
                             }}
                           >
                             {formatNumber(q.quantity)} pcs
+                            {q.free > 0 && (
+                              <span
+                                style={{
+                                  color: "var(--success)",
+                                  fontWeight: 600,
+                                  marginLeft: "4px",
+                                }}
+                              >
+                                (+{formatNumber(q.free)} Free)
+                              </span>
+                            )}
                           </span>
                         </div>
                       )}
@@ -665,7 +738,41 @@ export default function ProductSales() {
                     className="total-qty-col"
                     style={{ textAlign: "right", fontWeight: 800 }}
                   >
-                    {formatNumber(reportData.summary.grandTotalQuantity)} Pcs
+                    <div>
+                      {formatNumber(
+                        reportData.summary.grandTotalQuantity ||
+                          (reportData.quarterlyGrandTotals || []).reduce(
+                            (acc, q) => acc + (q.quantity || 0),
+                            0
+                          )
+                      )}{" "}
+                      Pcs
+                    </div>
+                    {Boolean(
+                      reportData.summary.grandTotalFree ||
+                        (reportData.quarterlyGrandTotals || []).reduce(
+                          (acc, q) => acc + (q.free || 0),
+                          0
+                        )
+                    ) && (
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "var(--success)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        +
+                        {formatNumber(
+                          reportData.summary.grandTotalFree ||
+                            (reportData.quarterlyGrandTotals || []).reduce(
+                              (acc, q) => acc + (q.free || 0),
+                              0
+                            )
+                        )}{" "}
+                        Free
+                      </div>
+                    )}
                   </td>
                   <td
                     className="total-rev-col"
