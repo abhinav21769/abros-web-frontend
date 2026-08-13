@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { FileBarChart, ExternalLink, Calendar, Building2, User, Layers } from "lucide-react";
+import { FileBarChart, ExternalLink, Calendar, Building2, User, Layers, Filter } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
 import { FadeIn } from "../components/ui/fade-in";
@@ -13,6 +13,22 @@ const QUARTER_OPTIONS = [
   { value: 2, label: "Q2 (Jul – Sep)" },
   { value: 3, label: "Q3 (Oct – Dec)" },
   { value: 4, label: "Q4 (Jan – Mar)" },
+];
+
+const MONTH_OPTIONS = [
+  { value: "all", label: "All Months in Quarter" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
 ];
 
 function formatCurrency(value) {
@@ -117,6 +133,7 @@ export default function GstReturns() {
   const [financialYear, setFinancialYear] = useState(getCurrentFinancialYear());
   const [quarter, setQuarter] = useState(getCurrentQuarter());
   const [filter, setFilter] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState("all");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -135,13 +152,33 @@ export default function GstReturns() {
 
   useEffect(() => {
     loadSummary();
+    setSelectedMonth("all"); // Reset month filter on quarter change
   }, [loadSummary]);
 
-  const filteredInvoices = useMemo(() => {
+  // Filter invoices by month
+  const monthFilteredInvoices = useMemo(() => {
     if (!data?.invoices) return [];
-    if (filter === "all") return data.invoices;
-    return data.invoices.filter((inv) => inv.registrationType === filter);
-  }, [data, filter]);
+    if (selectedMonth === "all") return data.invoices;
+    return data.invoices.filter((inv) => {
+      const date = new Date(inv.invoiceDate);
+      const m = date.getUTCMonth() + 1;
+      return String(m) === String(selectedMonth);
+    });
+  }, [data, selectedMonth]);
+
+  // Counts for tabs based on month selection
+  const counts = useMemo(() => {
+    const total = monthFilteredInvoices.length;
+    const b2b = monthFilteredInvoices.filter((i) => i.registrationType === "gst").length;
+    const b2c = monthFilteredInvoices.filter((i) => i.registrationType === "non-gst").length;
+    return { total, b2b, b2c };
+  }, [monthFilteredInvoices]);
+
+  // Final invoices shown in table after registration type filter
+  const finalInvoices = useMemo(() => {
+    if (filter === "all") return monthFilteredInvoices;
+    return monthFilteredInvoices.filter((inv) => inv.registrationType === filter);
+  }, [monthFilteredInvoices, filter]);
 
   if (loading) {
     return <LottieLoader fullScreen message="Calculating GST tax returns..." />;
@@ -236,26 +273,69 @@ export default function GstReturns() {
       </FadeIn>
 
       <FadeIn className="card" delay={0.15}>
-        <div className="page-tabs">
-          {[
-            { id: "all", label: `All Invoices (${data.invoices.length})` },
-            { id: "gst", label: `B2B Registered (${summary.gstRegistered.invoiceCount})` },
-            { id: "non-gst", label: `B2C Retail (${summary.nonGstRegistered.invoiceCount})` },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`page-tab${filter === tab.id ? " active" : ""}`}
-              onClick={() => setFilter(tab.id)}
+        {/* Table Header Controls: Sub-Tabs + Month Selector */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px 20px 12px",
+            borderBottom: "1px solid var(--border-subtle)",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
+          <div className="page-tabs" style={{ margin: 0, padding: 0 }}>
+            {[
+              { id: "all", label: `All Invoices (${counts.total})` },
+              { id: "gst", label: `B2B Registered (${counts.b2b})` },
+              { id: "non-gst", label: `B2C Retail (${counts.b2c})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`page-tab${filter === tab.id ? " active" : ""}`}
+                onClick={() => setFilter(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Month Filter Selector */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <Filter size={15} style={{ color: "var(--primary)" }} />
+            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)" }}>
+              Filter Month:
+            </span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{
+                padding: "6px 28px 6px 12px",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border)",
+                background: "var(--bg)",
+                color: "var(--text-main)",
+                cursor: "pointer",
+              }}
             >
-              {tab.label}
-            </button>
-          ))}
+              {MONTH_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="table-wrap">
-          {filteredInvoices.length === 0 ? (
-            <div className="empty-state">No sales invoices recorded for this filing quarter.</div>
+          {finalInvoices.length === 0 ? (
+            <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center" }}>
+              No GST sales invoices found for the selected month/filter.
+            </div>
           ) : (
             <table>
               <thead>
@@ -272,7 +352,7 @@ export default function GstReturns() {
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.map((invoice) => (
+                {finalInvoices.map((invoice) => (
                   <tr key={invoice._id}>
                     <td>
                       <span style={{ fontWeight: 700, color: "var(--primary)" }}>
