@@ -295,48 +295,6 @@ export default function ProductSales() {
         }
       />
 
-      {/* 4 KPI Cards in a clean single-row grid */}
-      <div className="product-sales-stats-grid">
-        <StatCard
-          label={`TOTAL REVENUE (${currentFYLabel})`}
-          value={formatCurrency(reportData.summary.grandTotalRevenue)}
-          sub={`Across ${reportData.summary.totalProductsCount || 0} active products`}
-          icon={<TrendingUp size={20} />}
-          iconBg="var(--success-bg)"
-          iconColor="var(--success)"
-        />
-
-        <StatCard
-          label="TOTAL UNITS SOLD"
-          value={`${formatNumber(reportData.summary.grandTotalQuantity)} Pcs`}
-          sub="Total quantity fulfilled"
-          icon={<Package size={20} />}
-          iconBg="rgba(59, 130, 246, 0.15)"
-          iconColor="#3b82f6"
-        />
-
-        <StatCard
-          label="TOP PERFORMING PRODUCT"
-          value={reportData.summary.topProduct || "—"}
-          sub="Highest revenue contributor"
-          icon={<Award size={20} />}
-          iconBg="var(--warning-bg)"
-          iconColor="var(--warning)"
-        />
-
-        <StatCard
-          label="PEAK SALES QUARTER"
-          value={
-            reportData.summary.peakQuarter ||
-            reportData.summary.peakMonth ||
-            "—"
-          }
-          sub="Best quarterly revenue period"
-          icon={<Calendar size={20} />}
-          iconBg="rgba(139, 92, 246, 0.15)"
-          iconColor="#8b5cf6"
-        />
-      </div>
 
       {/* Main Card with standard .toolbar search & matrix table */}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
