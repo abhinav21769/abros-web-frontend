@@ -18,6 +18,26 @@ export function calculateLineAmount(quantity, rate, discount = 0) {
   return Math.round((gross - discountAmount) * 100) / 100;
 }
 
+export function calculateLineNetRate(quantity, free, rate, discount = 0, enabled = true) {
+  if (!enabled) return 0;
+  const qty = Number(quantity) || 0;
+  const freeQty = Number(free) || 0;
+  const totalUnits = qty + freeQty;
+  if (totalUnits <= 0) return 0;
+  const taxableAmount = calculateLineAmount(qty, rate, discount);
+  return Math.round((taxableAmount / totalUnits) * 100) / 100;
+}
+
+export function getLineNetRate(item, enabled = true) {
+  if (!enabled) return 0;
+  const quantity = Number(item?.quantity) || 0;
+  const free = Number(item?.free) || 0;
+  const totalUnits = quantity + free;
+  if (totalUnits <= 0) return 0;
+  const taxable = getLineTaxableAmount(item);
+  return Math.round((taxable / totalUnits) * 100) / 100;
+}
+
 export function getLineTaxableAmount(item) {
   const quantity = Number(item?.quantity) || 0;
   const rate = Number(item?.rate) || 0;

@@ -35,7 +35,11 @@ import {
   toInvoiceDatePayload,
 } from "../utils/dateUtils";
 
-import { calculateInvoiceTax, GST_RATE_OPTIONS } from "../utils/invoiceTax";
+import {
+  calculateInvoiceTax,
+  calculateLineNetRate,
+  GST_RATE_OPTIONS,
+} from "../utils/invoiceTax";
 import { getAvailableStockForLine } from "../utils/invoiceStock";
 import {
   clearFieldError,
@@ -71,6 +75,7 @@ const emptyForm = {
   supplierGstin: "",
   status: "pending",
   paymentType: "credit",
+  calcNetRate: true,
   invoiceDate: getTodayDateInputValue(),
   items: [makeEmptyItem()],
 };
@@ -1035,8 +1040,22 @@ export default function Invoices() {
               </div>
             </div>
 
-            <div className="invoice-items-header">
-              <strong>Medicines & Items</strong>
+            <div className="invoice-items-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <strong>Medicines & Items</strong>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.825rem", color: "var(--text-muted)", cursor: "pointer", userSelect: "none" }}>
+                  <input
+                    type="checkbox"
+                    name="calcNetRate"
+                    checked={form.calcNetRate ?? true}
+                    onChange={(e) => setForm((prev) => ({ ...prev, calcNetRate: e.target.checked }))}
+                    style={{ width: "16px", height: "16px", accentColor: "var(--primary)", cursor: "pointer" }}
+                  />
+                  <span style={{ fontWeight: 600, color: (form.calcNetRate ?? true) ? "var(--primary)" : "var(--text-muted)" }}>
+                    Calculate Net Rate
+                  </span>
+                </label>
+              </div>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -1251,6 +1270,38 @@ export default function Invoices() {
                         )}
                       />
                       <FieldError message={itemFieldError(index, "rate")} />
+                    </div>
+
+                    <div className="input-group input-group-rate">
+                      <label>Net Rate (₹)</label>
+                      <input
+                        type="text"
+                        readOnly
+                        value={
+                          (form.calcNetRate ?? true)
+                            ? formatCurrency(
+                                calculateLineNetRate(
+                                  item.quantity,
+                                  item.free,
+                                  item.rate,
+                                  item.discount,
+                                  form.calcNetRate ?? true,
+                                )
+                              )
+                            : "—"
+                        }
+                        style={{
+                          background: "var(--surface-elevated)",
+                          color: (form.calcNetRate ?? true) ? "var(--primary)" : "var(--text-muted)",
+                          fontWeight: 700,
+                          opacity: (form.calcNetRate ?? true) ? 1 : 0.5,
+                        }}
+                        title={
+                          (form.calcNetRate ?? true)
+                            ? "Net Rate per unit = (Billed Qty × Rate × (1 - Disc%)) / (Billed Qty + Free Qty)"
+                            : "Net Rate calculation is turned off"
+                        }
+                      />
                     </div>
 
                     {form.items.length > 1 ? (

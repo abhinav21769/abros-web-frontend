@@ -8,6 +8,7 @@ import {
 } from "./pdfMobile";
 import {
   calculateInvoiceTax,
+  calculateLineNetRate,
   getLineItemGstRate,
   getLineTotalWithGst,
 } from "./invoiceTax";
@@ -149,31 +150,36 @@ function getLineItemHsn(item) {
   return item.hsn || med?.hsn || "";
 }
 
-function formatLineItemQuantity(quantity, free) {
+function formatLineItemQuantity(quantity, free, calcNetRate = true) {
   const qty = Number(quantity) || 0;
   const freeQty = Number(free) || 0;
+  if (calcNetRate) {
+    return String(qty + freeQty);
+  }
   if (freeQty > 0) {
     return `${qty}+${freeQty}`;
   }
   return String(qty);
 }
 
-const PDF_ITEM_HEADERS = [
-  "S. No.",
-  "Prodcut Name",
-  "Packing",
-  "HSN",
-  "MFG",
-  "BATCH",
-  "EXP.",
-  "MRP",
-  "QTY.",
-  "RATE",
-  "DISC.",
-  "CGST",
-  "SGST",
-  "Amount",
-];
+function getPdfItemHeaders(calcNetRate = true) {
+  return [
+    "S. No.",
+    "Prodcut Name",
+    "Packing",
+    "HSN",
+    "MFG",
+    "BATCH",
+    "EXP.",
+    "MRP",
+    "QTY.",
+    calcNetRate ? "NET RATE" : "RATE",
+    "DISC.",
+    "CGST",
+    "SGST",
+    "Amount",
+  ];
+}
 
 function formatShortInvoiceDate(value) {
   const date = new Date(value);
@@ -197,8 +203,11 @@ function calculateTaxSummary(invoice) {
 }
 
 function buildPdfTableRows(invoice) {
+  const calcNetRate = invoice?.calcNetRate !== false;
   return invoice.items.map((item, index) => {
     const med = getMedicine(item);
+    const netRate = calculateLineNetRate(item.quantity, item.free, item.rate, item.discount, calcNetRate);
+    const displayRate = calcNetRate ? (netRate > 0 ? netRate : item.rate) : item.rate;
 
     return [
       String(index + 1),
@@ -209,8 +218,8 @@ function buildPdfTableRows(invoice) {
       item.batchNumber || med?.batchNumber || "",
       item.expiryDate ? formatExpiryShort(item.expiryDate) : (med?.expiryDate ? formatExpiryShort(med.expiryDate) : ""),
       formatAmount(item.mrp ?? med?.mrp ?? item.rate),
-      formatLineItemQuantity(item.quantity, item.free),
-      formatAmount(item.rate),
+      formatLineItemQuantity(item.quantity, item.free, calcNetRate),
+      formatAmount(displayRate),
       `${Number(item.discount || 0).toFixed(2)}%`,
       `${getLineItemGstRate(item) / 2}%`,
       `${getLineItemGstRate(item) / 2}%`,
@@ -230,7 +239,7 @@ function drawPdfLabelValue(doc, label, value, x, y, labelWidth = 24) {
 }
 
 function getScaledColumnStyles(contentWidth) {
-  const pdfColumnWidths = [9, 22, 13, 10, 13, 13, 10, 11, 10, 11, 10, 8, 8, 16];
+  const pdfColumnWidths = [9, 20, 12, 10, 12, 12, 10, 11, 10, 11, 11, 10, 8, 8, 16];
   const widthScale =
     contentWidth / pdfColumnWidths.reduce((sum, width) => sum + width, 0);
 
@@ -244,12 +253,14 @@ function getScaledColumnStyles(contentWidth) {
 }
 
 function buildPaddedTableRows(invoice, tax) {
+  const calcNetRate = invoice?.calcNetRate !== false;
+  const itemHeaders = getPdfItemHeaders(calcNetRate);
   const tableRows = buildPdfTableRows(invoice);
   const minRows = Math.max(tableRows.length, 2);
   const paddedRows = [
     ...tableRows,
     ...Array.from({ length: minRows - tableRows.length }, () =>
-      Array(PDF_ITEM_HEADERS.length).fill(""),
+      Array(itemHeaders.length).fill(""),
     ),
   ];
 
@@ -437,12 +448,14 @@ function drawInvoiceCopy(doc, invoice, options) {
 
   y = receiverTop + receiverHeight;
 
+  const calcNetRate = invoice?.calcNetRate !== false;
+  const itemHeaders = getPdfItemHeaders(calcNetRate);
   const paddedRows = buildPaddedTableRows(invoice, tax);
   const scaledColumnStyles = getScaledColumnStyles(contentWidth);
 
   autoTable(doc, {
     startY: y,
-    head: [PDF_ITEM_HEADERS],
+    head: [itemHeaders],
     body: paddedRows,
     tableWidth: contentWidth,
     theme: "grid",
