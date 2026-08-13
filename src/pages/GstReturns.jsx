@@ -195,6 +195,20 @@ export default function GstReturns() {
     return monthFilteredInvoices.filter((inv) => inv.registrationType === filter);
   }, [monthFilteredInvoices, filter]);
 
+  // Total summary for table footer
+  const tableTotals = useMemo(() => {
+    return finalInvoices.reduce(
+      (acc, inv) => {
+        acc.subtotal += Number(inv.subtotal) || 0;
+        acc.cgst += Number(inv.cgst) || 0;
+        acc.sgst += Number(inv.sgst) || 0;
+        acc.total += Number(inv.total) || 0;
+        return acc;
+      },
+      { subtotal: 0, cgst: 0, sgst: 0, total: 0 },
+    );
+  }, [finalInvoices]);
+
   if (loading) {
     return <LottieLoader fullScreen message="Calculating GST tax returns..." />;
   }
@@ -429,6 +443,32 @@ export default function GstReturns() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr
+                  style={{
+                    fontWeight: 700,
+                    background: "var(--surface-elevated)",
+                    borderTop: "2px solid var(--border)",
+                  }}
+                >
+                  <td colSpan={4} style={{ textAlign: "right", color: "var(--text-main)", paddingRight: 16 }}>
+                    Total ({finalInvoices.length} {finalInvoices.length === 1 ? "invoice" : "invoices"}):
+                  </td>
+                  <td style={{ fontWeight: 700, color: "var(--text-main)" }}>
+                    {formatCurrency(tableTotals.subtotal)}
+                  </td>
+                  <td style={{ fontWeight: 700, color: "var(--text-main)" }}>
+                    {formatCurrency(tableTotals.cgst)}
+                  </td>
+                  <td style={{ fontWeight: 700, color: "var(--text-main)" }}>
+                    {formatCurrency(tableTotals.sgst)}
+                  </td>
+                  <td style={{ fontWeight: 800, color: "var(--primary)", fontSize: "0.95rem" }}>
+                    {formatCurrency(tableTotals.total)}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           )}
         </div>
