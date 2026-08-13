@@ -635,6 +635,15 @@ export default function Invoices() {
       toast.success(res.message);
       setModalOpen(false);
       fetchItems();
+
+      if (!editing && res?.data) {
+        try {
+          const detailRes = await invoicesApi.get(res.data._id);
+          setPreviewInvoice(detailRes?.data || res.data);
+        } catch {
+          setPreviewInvoice(res.data);
+        }
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
