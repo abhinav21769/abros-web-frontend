@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import logger from "../utils/logger";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -147,7 +148,7 @@ function QuickStatusBadge({ item, onStatusChange }) {
     try {
       await onStatusChange(item._id, newStatus);
     } catch (err) {
-      console.error(err);
+      logger.error("Invoice status update failed", err);
     } finally {
       setUpdating(false);
     }

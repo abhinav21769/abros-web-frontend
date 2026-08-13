@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
+import logger from "../utils/logger";
 import { Link } from "react-router-dom";
 import {
   RefreshCw,
@@ -102,7 +103,7 @@ export default function CustomerProductSales() {
         }
       }
     } catch (err) {
-      console.error("Failed to load customer x product monthly sales report:", err);
+      logger.error("Failed to load customer x product monthly sales report", err);
       setError(err.message || "Failed to load report");
       toast?.error?.(err.message || "Failed to load report");
     } finally {
