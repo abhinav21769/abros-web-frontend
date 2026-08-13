@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Plus, Pencil, Trash2, TrendingUp } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
@@ -131,9 +132,14 @@ export default function Customers() {
         title="Customers"
         subtitle="Manage medical stores and buyer accounts"
         action={
-          <button className="btn btn-primary" onClick={openCreate}>
-            <Plus size={16} /> Add Customer
-          </button>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <Link to="/customer-product-sales" className="btn btn-secondary">
+              <TrendingUp size={16} /> Sales Analysis
+            </Link>
+            <button className="btn btn-primary" onClick={openCreate}>
+              <Plus size={16} /> Add Customer
+            </button>
+          </div>
         }
       />
 

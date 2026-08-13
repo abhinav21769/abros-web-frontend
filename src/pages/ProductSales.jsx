@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
   RefreshCw,
   TrendingUp,
@@ -7,6 +8,9 @@ import {
   Calendar,
   FileSpreadsheet,
   AlertCircle,
+  BarChart3,
+  Building2,
+  Layers,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
@@ -209,6 +213,58 @@ export default function ProductSales() {
 
   return (
     <FadeIn>
+      {/* Top Sales Reports Navigation Bar */}
+      <div
+        style={{
+          display: "flex",
+          gap: "8px",
+          marginBottom: "20px",
+          padding: "4px",
+          background: "var(--surface)",
+          borderRadius: "var(--radius-lg)",
+          border: "1px solid var(--border)",
+          width: "fit-content",
+        }}
+      >
+        <Link
+          to="/product-sales"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 16px",
+            borderRadius: "var(--radius-md)",
+            fontSize: "0.875rem",
+            fontWeight: 700,
+            background: "var(--primary)",
+            color: "#ffffff",
+            boxShadow: "0 2px 4px rgba(15, 118, 110, 0.2)",
+            textDecoration: "none",
+          }}
+        >
+          <BarChart3 size={16} />
+          Product-wise Sales
+        </Link>
+        <Link
+          to="/customer-product-sales"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 16px",
+            borderRadius: "var(--radius-md)",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            textDecoration: "none",
+            color: "var(--text-muted)",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <Layers size={16} />
+          Customer × Product Monthly
+        </Link>
+      </div>
+
       {/* Page Header */}
       <PageHeader
         title="Quarterly Product Sales"

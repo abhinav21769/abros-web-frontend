@@ -4,6 +4,7 @@ import {
   ReceiptText,
   Pill,
   BarChart3,
+  Layers,
   Truck,
   Building2,
   Landmark,
@@ -21,6 +22,7 @@ const navItems = [
   { to: "/invoices", label: "Sales Invoices", icon: ReceiptText, invoiceTab: "sale" },
   { to: "/inventory", label: "Medicine Inventory", icon: Pill },
   { to: "/product-sales", label: "Product Sales", icon: BarChart3 },
+  { to: "/customer-product-sales", label: "Customer Sales", icon: Layers },
   {
     to: "/invoices",
     label: "Purchase Orders",

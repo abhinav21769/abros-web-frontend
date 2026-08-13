@@ -124,6 +124,14 @@ export const dashboardApi = {
     const query = new URLSearchParams(params).toString();
     return request(`/api/dashboard/product-sales${query ? `?${query}` : ""}`);
   },
+  customerSales: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/dashboard/customer-sales${query ? `?${query}` : ""}`);
+  },
+  customerProductSales: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/dashboard/customer-product-sales${query ? `?${query}` : ""}`);
+  },
 };
 
 export const gstApi = {

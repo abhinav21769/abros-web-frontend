@@ -9,6 +9,8 @@ import Dashboard from "./pages/Dashboard";
 import Invoices from "./pages/Invoices";
 import Inventory from "./pages/Inventory";
 import ProductSales from "./pages/ProductSales";
+import CustomerSales from "./pages/CustomerSales";
+import CustomerProductSales from "./pages/CustomerProductSales";
 import Customers from "./pages/Customers";
 import GstReturns from "./pages/GstReturns";
 
@@ -26,6 +28,11 @@ export default function App() {
                   <Route path="invoices" element={<Invoices />} />
                   <Route path="inventory" element={<Inventory />} />
                   <Route path="product-sales" element={<ProductSales />} />
+                  <Route
+                    path="customer-sales"
+                    element={<Navigate to="/customer-product-sales" replace />}
+                  />
+                  <Route path="customer-product-sales" element={<CustomerProductSales />} />
                   <Route
                     path="purchases"
                     element={<Navigate to="/invoices?type=purchase" replace />}
