@@ -81,7 +81,7 @@ export default function ProductSales() {
   const [financialYear, setFinancialYear] = useState(getCurrentFinancialYear());
   const [availableFinancialYears, setAvailableFinancialYears] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState("revenue"); // "revenue" | "quantity" | "both"
+  const [viewMode, setViewMode] = useState("quantity"); // "quantity" | "revenue" | "both"
 
   const [reportData, setReportData] = useState({
     financialYearLabel: "",
@@ -159,40 +159,34 @@ export default function ProductSales() {
       "Product Name",
       ...QUARTER_HEADERS.flatMap((q) => [
         `${q.label} Qty`,
-        `${q.label} Free Qty`,
         `${q.label} Revenue (Rs)`,
       ]),
       "Total Qty Sold",
-      "Total Free Qty",
       "Total Revenue (Rs)",
     ];
 
     const rows = reportData.products.map((p) => {
       const qData = p.quarterlyData || p.monthlyData || [];
       const quarterCols = qData.flatMap((q) => [
-        q.quantity || 0,
-        q.free || 0,
+        (q.quantity || 0) + (q.free || 0),
         q.revenue || 0,
       ]);
       return [
         `"${(p.medicineName || "").replace(/"/g, '""')}"`,
         ...quarterCols,
-        p.totalQuantity || 0,
-        p.totalFree || 0,
+        (p.totalQuantity || 0) + (p.totalFree || 0),
         p.totalRevenue || 0,
       ];
     });
 
     const summaryCols = (reportData.quarterlyGrandTotals || []).flatMap((q) => [
-      q.quantity || 0,
-      q.free || 0,
+      (q.quantity || 0) + (q.free || 0),
       q.revenue || 0,
     ]);
     rows.push([
       '"QUARTERLY GRAND TOTAL"',
       ...summaryCols,
-      reportData.summary.grandTotalQuantity || 0,
-      reportData.summary.grandTotalFree || 0,
+      (reportData.summary.grandTotalQuantity || 0) + (reportData.summary.grandTotalFree || 0),
       reportData.summary.grandTotalRevenue || 0,
     ]);
 
@@ -307,14 +301,15 @@ export default function ProductSales() {
 
       {/* Main Card with standard .toolbar search & matrix table */}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        {/* Standard Toolbar across modules */}
-        <div className="toolbar">
-          <input
-            type="text"
-            placeholder="Search product by name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="toolbar" style={{ borderBottom: "1px solid var(--border-subtle)", padding: "16px 20px" }}>
+          <div className="search-box" style={{ maxWidth: 320 }}>
+            <input
+              type="text"
+              placeholder="Search product by name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
           <div
             style={{
@@ -327,9 +322,9 @@ export default function ProductSales() {
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span
                 style={{
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
+                  fontSize: "0.825rem",
                   color: "var(--text-muted)",
+                  fontWeight: 600,
                 }}
               >
                 Financial Year:
@@ -339,12 +334,12 @@ export default function ProductSales() {
                 onChange={(e) => setFinancialYear(Number(e.target.value))}
                 style={{
                   padding: "6px 28px 6px 12px",
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
+                  fontSize: "0.825rem",
                   borderRadius: "var(--radius-md)",
                   border: "1px solid var(--border)",
                   background: "var(--bg)",
                   color: "var(--text-main)",
+                  fontWeight: 600,
                   cursor: "pointer",
                 }}
               >
@@ -382,30 +377,6 @@ export default function ProductSales() {
                   gap: "4px",
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => setViewMode("revenue")}
-                  style={{
-                    padding: "5px 12px",
-                    fontSize: "0.78rem",
-                    borderRadius: "var(--radius-sm)",
-                    border: "none",
-                    fontWeight: viewMode === "revenue" ? 700 : 500,
-                    background:
-                      viewMode === "revenue"
-                        ? "var(--primary)"
-                        : "transparent",
-                    color:
-                      viewMode === "revenue"
-                        ? "#ffffff"
-                        : "var(--text-muted)",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  Revenue (₹)
-                </button>
-
                 <button
                   type="button"
                   onClick={() => setViewMode("quantity")}
@@ -565,7 +536,8 @@ export default function ProductSales() {
 
                       {/* 4 Quarter Data Cells */}
                       {qList.map((q, qIdx) => {
-                        const hasSales = q.quantity > 0 || q.revenue > 0;
+                        const totalUnits = (q.quantity || 0) + (q.free || 0);
+                        const hasSales = totalUnits > 0 || q.revenue > 0;
                         return (
                           <td
                             key={qIdx}
@@ -578,33 +550,15 @@ export default function ProductSales() {
                               opacity: hasSales ? 1 : 0.6,
                             }}
                           >
-                            {viewMode === "revenue" && (
+                            {viewMode === "quantity" && (
                               <span>
-                                {hasSales ? formatCurrency(q.revenue) : "—"}
+                                {hasSales ? formatNumber(totalUnits) : "—"}
                               </span>
                             )}
 
-                            {viewMode === "quantity" && (
+                            {viewMode === "revenue" && (
                               <span>
-                                {hasSales ? (
-                                  <>
-                                    <span>{formatNumber(q.quantity)}</span>
-                                    {q.free > 0 && (
-                                      <span
-                                        style={{
-                                          fontSize: "0.75rem",
-                                          color: "var(--success)",
-                                          fontWeight: 600,
-                                          marginLeft: "4px",
-                                        }}
-                                      >
-                                        (+{formatNumber(q.free)} Free)
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  "—"
-                                )}
+                                {hasSales ? formatCurrency(q.revenue) : "—"}
                               </span>
                             )}
 
@@ -626,18 +580,7 @@ export default function ProductSales() {
                                       color: "var(--text-muted)",
                                     }}
                                   >
-                                    {formatNumber(q.quantity)} pcs
-                                    {q.free > 0 && (
-                                      <span
-                                        style={{
-                                          color: "var(--success)",
-                                          fontWeight: 600,
-                                          marginLeft: "4px",
-                                        }}
-                                      >
-                                        (+{formatNumber(q.free)} Free)
-                                      </span>
-                                    )}
+                                    {formatNumber(totalUnits)} pcs
                                   </span>
                                 )}
                               </div>
@@ -647,19 +590,8 @@ export default function ProductSales() {
                       })}
 
                       {/* Total Qty */}
-                      <td className="total-qty-col" style={{ textAlign: "right" }}>
-                        <div>{formatNumber(prod.totalQuantity)} Pcs</div>
-                        {prod.totalFree > 0 && (
-                          <div
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "var(--success)",
-                              fontWeight: 600,
-                            }}
-                          >
-                            +{formatNumber(prod.totalFree)} Free
-                          </div>
-                        )}
+                      <td className="total-qty-col" style={{ textAlign: "right", fontWeight: 600 }}>
+                        {formatNumber((prod.totalQuantity || 0) + (prod.totalFree || 0))} Pcs
                       </td>
 
                       {/* Total Revenue */}
@@ -680,99 +612,50 @@ export default function ProductSales() {
                   >
                     QUARTERLY TOTAL
                   </td>
-                  {(reportData.quarterlyGrandTotals || []).map((q, qIdx) => (
-                    <td
-                      key={qIdx}
-                      style={{ textAlign: "right", fontWeight: 700 }}
-                    >
-                      {viewMode === "revenue" && formatCurrency(q.revenue)}
-                      {viewMode === "quantity" && (
-                        <div>
-                          <div>{formatNumber(q.quantity)}</div>
-                          {q.free > 0 && (
-                            <div
-                              style={{
-                                fontSize: "0.72rem",
-                                color: "var(--success)",
-                                fontWeight: 600,
-                              }}
-                            >
-                              +{formatNumber(q.free)} Free
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {viewMode === "both" && (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "2px",
-                          }}
-                        >
-                          <span>{formatCurrency(q.revenue)}</span>
-                          <span
+                  {(reportData.quarterlyGrandTotals || []).map((q, qIdx) => {
+                    const qTotalUnits = (q.quantity || 0) + (q.free || 0);
+                    return (
+                      <td
+                        key={qIdx}
+                        style={{ textAlign: "right", fontWeight: 700 }}
+                      >
+                        {viewMode === "quantity" && formatNumber(qTotalUnits)}
+                        {viewMode === "revenue" && formatCurrency(q.revenue)}
+                        {viewMode === "both" && (
+                          <div
                             style={{
-                              fontSize: "0.72rem",
-                              color: "var(--text-muted)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "2px",
                             }}
                           >
-                            {formatNumber(q.quantity)} pcs
-                            {q.free > 0 && (
-                              <span
-                                style={{
-                                  color: "var(--success)",
-                                  fontWeight: 600,
-                                  marginLeft: "4px",
-                                }}
-                              >
-                                (+{formatNumber(q.free)} Free)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                  ))}
+                            <span>{formatCurrency(q.revenue)}</span>
+                            <span
+                              style={{
+                                fontSize: "0.72rem",
+                                color: "var(--text-muted)",
+                              }}
+                            >
+                              {formatNumber(qTotalUnits)} pcs
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
                   <td
                     className="total-qty-col"
                     style={{ textAlign: "right", fontWeight: 800 }}
                   >
-                    <div>
-                      {formatNumber(
-                        reportData.summary.grandTotalQuantity ||
-                          (reportData.quarterlyGrandTotals || []).reduce(
-                            (acc, q) => acc + (q.quantity || 0),
-                            0
-                          )
-                      )}{" "}
-                      Pcs
-                    </div>
-                    {Boolean(
-                      reportData.summary.grandTotalFree ||
+                    {formatNumber(
+                      (reportData.summary.grandTotalQuantity || 0) +
+                        (reportData.summary.grandTotalFree || 0) ||
                         (reportData.quarterlyGrandTotals || []).reduce(
-                          (acc, q) => acc + (q.free || 0),
+                          (acc, q) => acc + (q.quantity || 0) + (q.free || 0),
                           0
                         )
-                    ) && (
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "var(--success)",
-                          fontWeight: 700,
-                        }}
-                      >
-                        +
-                        {formatNumber(
-                          reportData.summary.grandTotalFree ||
-                            (reportData.quarterlyGrandTotals || []).reduce(
-                              (acc, q) => acc + (q.free || 0),
-                              0
-                            )
-                        )}{" "}
-                        Free
-                      </div>
-                    )}
+                    )}{" "}
+                    Pcs
                   </td>
                   <td
                     className="total-rev-col"
