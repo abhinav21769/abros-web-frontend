@@ -533,6 +533,11 @@ export default function CustomerProductSales() {
                       </div>
                       <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "var(--text-main)" }}>
                         {formatNumber(cust.totalQuantity)} Pcs
+                        {cust.totalFree > 0 && (
+                          <span style={{ fontSize: "0.76rem", color: "#e11d48", fontWeight: 700, marginLeft: "4px" }}>
+                            (+{formatNumber(cust.totalFree)} Free)
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
@@ -580,7 +585,7 @@ export default function CustomerProductSales() {
                           </td>
 
                           {(prod.monthlyData || []).map((cell, idx) => {
-                            const hasData = cell.quantity > 0 || cell.revenue > 0;
+                            const hasData = cell.quantity > 0 || cell.free > 0 || cell.revenue > 0;
                             return (
                               <td
                                 key={idx}
@@ -593,7 +598,12 @@ export default function CustomerProductSales() {
                                 {hasData ? (
                                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px" }}>
                                     <span style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.82rem" }}>
-                                      {cell.quantity > 0 ? `${cell.quantity} Pcs` : "0"}
+                                      {cell.quantity > 0 ? `${cell.quantity} Pcs` : cell.free > 0 ? "0 Pcs" : "0"}
+                                      {cell.free > 0 && (
+                                        <span style={{ fontSize: "0.7rem", color: "#e11d48", fontWeight: 700, marginLeft: "3px" }}>
+                                          (+{cell.free} Free)
+                                        </span>
+                                      )}
                                     </span>
                                     <span style={{ fontSize: "0.72rem", color: "var(--primary)", fontWeight: 600 }}>
                                       {formatCurrency(cell.revenue)}
@@ -610,6 +620,11 @@ export default function CustomerProductSales() {
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "1px" }}>
                               <span style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-main)" }}>
                                 {formatNumber(prod.totalQuantity)} Pcs
+                                {prod.totalFree > 0 && (
+                                  <span style={{ fontSize: "0.72rem", color: "#e11d48", fontWeight: 700, marginLeft: "4px" }}>
+                                    (+{formatNumber(prod.totalFree)} Free)
+                                  </span>
+                                )}
                               </span>
                               <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--primary)" }}>
                                 {formatCurrency(prod.totalRevenue)}
@@ -624,17 +639,22 @@ export default function CustomerProductSales() {
                         style={{
                           background: "var(--surface-elevated)",
                           fontWeight: 800,
-                          borderTop: "2px solid var(--border-strong)",
+                          borderTop: "3px solid var(--border-strong)",
                         }}
                       >
                         <td style={{ paddingLeft: "20px", textAlign: "left" }}>
                           MONTHLY TOTALS
                         </td>
-                        {(cust.monthlyTotals || Array(12).fill({ quantity: 0, revenue: 0 })).map((cell, idx) => (
+                        {(cust.monthlyTotals || Array(12).fill({ quantity: 0, free: 0, revenue: 0 })).map((cell, idx) => (
                           <td key={idx} style={{ textAlign: "center" }}>
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px" }}>
                               <span style={{ fontWeight: 800, color: "var(--text-main)", fontSize: "0.82rem" }}>
                                 {formatNumber(cell.quantity)} Pcs
+                                {cell.free > 0 && (
+                                  <span style={{ fontSize: "0.7rem", color: "#e11d48", fontWeight: 700, marginLeft: "3px" }}>
+                                    (+{cell.free} Free)
+                                  </span>
+                                )}
                               </span>
                               <span style={{ fontSize: "0.74rem", color: "var(--primary)", fontWeight: 700 }}>
                                 {formatCurrency(cell.revenue)}
@@ -646,6 +666,11 @@ export default function CustomerProductSales() {
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "1px" }}>
                             <span style={{ fontWeight: 800, fontSize: "0.9rem", color: "var(--text-main)" }}>
                               {formatNumber(cust.totalQuantity)} Pcs
+                              {cust.totalFree > 0 && (
+                                <span style={{ fontSize: "0.72rem", color: "#e11d48", fontWeight: 700, marginLeft: "4px" }}>
+                                  (+{formatNumber(cust.totalFree)} Free)
+                                </span>
+                              )}
                             </span>
                             <span style={{ fontSize: "0.92rem", fontWeight: 800, color: "var(--primary)" }}>
                               {formatCurrency(cust.totalRevenue)}
