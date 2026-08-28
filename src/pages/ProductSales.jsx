@@ -367,25 +367,6 @@ export default function ProductSales() {
           <Building2 size={16} />
           Customer × Product Monthly
         </Link>
-        <Link
-          to="/customer-sales"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "8px 16px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            background: "transparent",
-            color: "var(--text-muted)",
-            textDecoration: "none",
-            transition: "all 0.15s ease",
-          }}
-        >
-          <Layers size={16} />
-          Customer-wise Sales
-        </Link>
       </div>
 
       {/* Page Header */}
