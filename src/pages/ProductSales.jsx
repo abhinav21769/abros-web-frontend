@@ -21,10 +21,25 @@ import { dashboardApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 
 const QUARTER_HEADERS = [
-  { key: "q1", label: "Q1 (Apr – Jun)" },
-  { key: "q2", label: "Q2 (Jul – Sep)" },
-  { key: "q3", label: "Q3 (Oct – Dec)" },
-  { key: "q4", label: "Q4 (Jan – Mar)" },
+  { key: "q1", label: "Q1 (Apr – Jun)", shortLabel: "Q1", index: 0 },
+  { key: "q2", label: "Q2 (Jul – Sep)", shortLabel: "Q2", index: 1 },
+  { key: "q3", label: "Q3 (Oct – Dec)", shortLabel: "Q3", index: 2 },
+  { key: "q4", label: "Q4 (Jan – Mar)", shortLabel: "Q4", index: 3 },
+];
+
+const MONTH_HEADERS = [
+  { key: "m4", label: "Apr", fullLabel: "April", index: 0, monthNumber: 4 },
+  { key: "m5", label: "May", fullLabel: "May", index: 1, monthNumber: 5 },
+  { key: "m6", label: "Jun", fullLabel: "June", index: 2, monthNumber: 6 },
+  { key: "m7", label: "Jul", fullLabel: "July", index: 3, monthNumber: 7 },
+  { key: "m8", label: "Aug", fullLabel: "August", index: 4, monthNumber: 8 },
+  { key: "m9", label: "Sep", fullLabel: "September", index: 5, monthNumber: 9 },
+  { key: "m10", label: "Oct", fullLabel: "October", index: 6, monthNumber: 10 },
+  { key: "m11", label: "Nov", fullLabel: "November", index: 7, monthNumber: 11 },
+  { key: "m12", label: "Dec", fullLabel: "December", index: 8, monthNumber: 12 },
+  { key: "m1", label: "Jan", fullLabel: "January", index: 9, monthNumber: 1 },
+  { key: "m2", label: "Feb", fullLabel: "February", index: 10, monthNumber: 2 },
+  { key: "m3", label: "Mar", fullLabel: "March", index: 11, monthNumber: 3 },
 ];
 
 function formatCurrency(val) {
@@ -82,6 +97,8 @@ export default function ProductSales() {
   const [financialYear, setFinancialYear] = useState(getCurrentFinancialYear());
   const [availableFinancialYears, setAvailableFinancialYears] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [breakdownType, setBreakdownType] = useState("quarterly"); // "quarterly" | "monthly"
+  const [selectedPeriod, setSelectedPeriod] = useState("all"); // "all" | "q1".."q4" | "4".."3"
   const [viewMode, setViewMode] = useState("quantity"); // "quantity" | "revenue" | "both"
 
   const [reportData, setReportData] = useState({
@@ -96,6 +113,9 @@ export default function ProductSales() {
     quarterlyGrandTotals: Array(4)
       .fill(0)
       .map(() => ({ quantity: 0, revenue: 0 })),
+    monthlyGrandTotals: Array(12)
+      .fill(0)
+      .map(() => ({ quantity: 0, revenue: 0 })),
     products: [],
   });
 
@@ -105,13 +125,12 @@ export default function ProductSales() {
     try {
       const res = await dashboardApi.productSales({ financialYear: fy, search });
       if (res && res.data) {
-        const qTotals =
-          res.data.quarterlyGrandTotals || res.data.monthlyGrandTotals || [];
         setReportData({
           financialYearLabel:
             res.data.financialYearLabel || `FY ${fy}-${String(fy + 1).slice(-2)}`,
           summary: res.data.summary || {},
-          quarterlyGrandTotals: qTotals,
+          quarterlyGrandTotals: res.data.quarterlyGrandTotals || [],
+          monthlyGrandTotals: res.data.monthlyGrandTotals || [],
           products: res.data.products || [],
         });
 
@@ -127,7 +146,7 @@ export default function ProductSales() {
         }
       }
     } catch (err) {
-      logger.error("Failed to load quarterly product sales report", err);
+      logger.error("Failed to load product sales report", err);
       setError(err.message || "Failed to load sales report");
       toast?.error?.(err.message || "Failed to load sales report");
     } finally {
@@ -138,6 +157,11 @@ export default function ProductSales() {
   useEffect(() => {
     fetchReport(financialYear, searchTerm);
   }, [financialYear]);
+
+  const handleBreakdownChange = (type) => {
+    setBreakdownType(type);
+    setSelectedPeriod("all");
+  };
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return reportData.products;
@@ -151,8 +175,86 @@ export default function ProductSales() {
     );
   }, [reportData.products, searchTerm]);
 
+  const activeColumns = useMemo(() => {
+    if (breakdownType === "monthly") {
+      if (selectedPeriod !== "all") {
+        const found = MONTH_HEADERS.find(
+          (m) => String(m.monthNumber) === String(selectedPeriod) || m.key === selectedPeriod
+        );
+        return found ? [found] : MONTH_HEADERS;
+      }
+      return MONTH_HEADERS;
+    } else {
+      if (selectedPeriod !== "all") {
+        const found = QUARTER_HEADERS.find(
+          (q) => q.key === selectedPeriod || String(q.index + 1) === String(selectedPeriod)
+        );
+        return found ? [found] : QUARTER_HEADERS;
+      }
+      return QUARTER_HEADERS;
+    }
+  }, [breakdownType, selectedPeriod]);
+
+  const getCellData = (prod, col) => {
+    if (breakdownType === "monthly") {
+      const mList = prod.monthlyData || [];
+      const mItem = mList[col.index] || { quantity: 0, free: 0, revenue: 0 };
+      const totalUnits = (mItem.quantity || 0) + (mItem.free || 0);
+      return { totalUnits, revenue: mItem.revenue || 0 };
+    } else {
+      const qList = prod.quarterlyData || [];
+      const qItem = qList[col.index] || { quantity: 0, free: 0, revenue: 0 };
+      const totalUnits = (qItem.quantity || 0) + (qItem.free || 0);
+      return { totalUnits, revenue: qItem.revenue || 0 };
+    }
+  };
+
+  const getRowTotals = (prod) => {
+    let rowUnits = 0;
+    let rowRev = 0;
+    activeColumns.forEach((col) => {
+      const cell = getCellData(prod, col);
+      rowUnits += cell.totalUnits;
+      rowRev += cell.revenue;
+    });
+    return {
+      quantity: rowUnits,
+      revenue: Math.round(rowRev * 100) / 100,
+    };
+  };
+
+  const footerTotals = useMemo(() => {
+    const colTotals = activeColumns.map((col) => {
+      let colQty = 0;
+      let colRev = 0;
+      filteredProducts.forEach((prod) => {
+        const cell = getCellData(prod, col);
+        colQty += cell.totalUnits;
+        colRev += cell.revenue;
+      });
+      return {
+        quantity: colQty,
+        revenue: Math.round(colRev * 100) / 100,
+      };
+    });
+
+    let grandQty = 0;
+    let grandRev = 0;
+    filteredProducts.forEach((prod) => {
+      const r = getRowTotals(prod);
+      grandQty += r.quantity;
+      grandRev += r.revenue;
+    });
+
+    return {
+      colTotals,
+      grandTotalQuantity: grandQty,
+      grandTotalRevenue: Math.round(grandRev * 100) / 100,
+    };
+  }, [filteredProducts, activeColumns, breakdownType]);
+
   const exportToCSV = () => {
-    if (!reportData.products || reportData.products.length === 0) {
+    if (!filteredProducts || filteredProducts.length === 0) {
       toast?.info?.("No sales data available to export");
       return;
     }
@@ -162,50 +264,51 @@ export default function ProductSales() {
 
     const headers = [
       "Product Name",
-      ...QUARTER_HEADERS.flatMap((q) => [
-        `${q.label} Qty`,
-        `${q.label} Revenue (Rs)`,
+      ...activeColumns.flatMap((col) => [
+        `${col.label || col.fullLabel} Qty`,
+        `${col.label || col.fullLabel} Revenue (Rs)`,
       ]),
       "Total Qty Sold",
       "Total Revenue (Rs)",
     ];
 
-    const rows = reportData.products.map((p) => {
-      const qData = p.quarterlyData || p.monthlyData || [];
-      const quarterCols = qData.flatMap((q) => [
-        (q.quantity || 0) + (q.free || 0),
-        q.revenue || 0,
-      ]);
+    const rows = filteredProducts.map((p) => {
+      const colData = activeColumns.flatMap((col) => {
+        const cell = getCellData(p, col);
+        return [cell.totalUnits, cell.revenue];
+      });
+      const rowTot = getRowTotals(p);
       return [
         p.medicineName || "",
-        ...quarterCols,
-        (p.totalQuantity || 0) + (p.totalFree || 0),
-        p.totalRevenue || 0,
+        ...colData,
+        rowTot.quantity,
+        rowTot.revenue,
       ];
     });
 
-    const summaryCols = (reportData.quarterlyGrandTotals || []).flatMap((q) => [
-      (q.quantity || 0) + (q.free || 0),
-      q.revenue || 0,
+    const summaryCols = footerTotals.colTotals.flatMap((col) => [
+      col.quantity,
+      col.revenue,
     ]);
     rows.push([
-      "QUARTERLY GRAND TOTAL",
+      "GRAND TOTAL",
       ...summaryCols,
-      (reportData.summary.grandTotalQuantity || 0) + (reportData.summary.grandTotalFree || 0),
-      reportData.summary.grandTotalRevenue || 0,
+      footerTotals.grandTotalQuantity,
+      footerTotals.grandTotalRevenue,
     ]);
 
+    const prefix = breakdownType === "monthly" ? "Monthly" : "Quarterly";
     downloadCsv(
-      `Quarterly_Product_Sales_${fyLabel.replace(/\s+/g, "_")}.csv`,
+      `${prefix}_Product_Sales_${fyLabel.replace(/\s+/g, "_")}.csv`,
       headers,
       rows
     );
 
-    toast?.success?.(`Exported quarterly sales report for ${fyLabel} to CSV`);
+    toast?.success?.(`Exported ${prefix.toLowerCase()} sales report for ${fyLabel} to CSV`);
   };
 
   if (loading && !reportData.products.length) {
-    return <LottieLoader fullScreen message="Loading Quarterly Product Sales analysis..." />;
+    return <LottieLoader fullScreen message="Loading Product Sales analysis..." />;
   }
 
   const currentFYLabel =
@@ -255,21 +358,40 @@ export default function ProductSales() {
             borderRadius: "var(--radius-md)",
             fontSize: "0.875rem",
             fontWeight: 600,
-            textDecoration: "none",
+            background: "transparent",
             color: "var(--text-muted)",
+            textDecoration: "none",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <Building2 size={16} />
+          Customer × Product Monthly
+        </Link>
+        <Link
+          to="/customer-sales"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 16px",
+            borderRadius: "var(--radius-md)",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            background: "transparent",
+            color: "var(--text-muted)",
+            textDecoration: "none",
             transition: "all 0.15s ease",
           }}
         >
           <Layers size={16} />
-          Customer × Product Monthly
+          Customer-wise Sales
         </Link>
       </div>
 
       {/* Page Header */}
       <PageHeader
-        title="Quarterly Product Sales"
-        heading="Quarterly Product Sales"
-        subtitle="Quarterly breakdown of product sales (Paid & Pending invoices)"
+        title={`Product-wise Sales Matrix — ${currentFYLabel}`}
+        subtitle="Comprehensive product sales volume and revenue across months and quarters with totals"
         action={
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <button
@@ -278,14 +400,14 @@ export default function ProductSales() {
               onClick={() => fetchReport(financialYear, searchTerm)}
               disabled={loading}
             >
-              <RefreshCw size={15} className={loading ? "spin" : ""} />
+              <RefreshCw size={16} className={loading ? "spin" : ""} />
               Refresh
             </button>
             <button
               type="button"
               className="btn btn-primary"
               onClick={exportToCSV}
-              disabled={loading || !reportData.products.length}
+              disabled={!filteredProducts || filteredProducts.length === 0}
             >
               <FileSpreadsheet size={16} />
               Export CSV
@@ -294,28 +416,96 @@ export default function ProductSales() {
         }
       />
 
+      {/* KPI Cards */}
+      <div
+        className="stats-grid"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: "16px",
+          marginBottom: "24px",
+        }}
+      >
+        <StatCard
+          label="Total Products"
+          value={formatNumber(reportData.summary.totalProductsCount || reportData.products.length)}
+          sub="With recorded sales"
+          icon={<Package size={20} />}
+          iconBg="rgba(14, 165, 233, 0.12)"
+          iconColor="#0284c7"
+        />
+        <StatCard
+          label="Total Units Sold"
+          value={formatNumber(
+            (reportData.summary.grandTotalQuantity || 0) +
+              (reportData.summary.grandTotalFree || 0)
+          )}
+          sub={`${formatNumber(reportData.summary.grandTotalFree || 0)} free sample units`}
+          icon={<TrendingUp size={20} />}
+          iconBg="rgba(16, 185, 129, 0.12)"
+          iconColor="#10b981"
+        />
+        <StatCard
+          label="Annual Sales Revenue"
+          value={formatCurrency(reportData.summary.grandTotalRevenue)}
+          sub={`For ${currentFYLabel}`}
+          icon={<Award size={20} />}
+          iconBg="rgba(245, 158, 11, 0.12)"
+          iconColor="#d97706"
+        />
+        <StatCard
+          label="Top Selling Product"
+          value={reportData.summary.topProduct || "N/A"}
+          sub="By annual revenue"
+          icon={<Award size={20} />}
+          iconBg="rgba(99, 102, 241, 0.12)"
+          iconColor="#6366f1"
+        />
+        <StatCard
+          label="Peak Quarter"
+          value={reportData.summary.peakQuarter || "N/A"}
+          sub="Highest revenue period"
+          icon={<Calendar size={20} />}
+          iconBg="rgba(236, 72, 153, 0.12)"
+          iconColor="#db2777"
+        />
+      </div>
 
-      {/* Main Card with standard .toolbar search & matrix table */}
+      {/* Main Card with search & controls */}
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div className="toolbar" style={{ borderBottom: "1px solid var(--border-subtle)", padding: "16px 20px" }}>
-          <div className="search-box" style={{ maxWidth: 320 }}>
+        <div
+          className="toolbar"
+          style={{
+            borderBottom: "1px solid var(--border-subtle)",
+            padding: "16px 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "16px",
+          }}
+        >
+          {/* Search Box */}
+          <div className="search-box" style={{ maxWidth: 300, flex: 1, minWidth: 220 }}>
             <input
               type="text"
-              placeholder="Search by product or customer name..."
+              placeholder="Search product or customer..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
+          {/* Controls: Breakdown Toggle, Period Filter, FY Selector, Cell Display */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "16px",
+              gap: "12px",
               flexWrap: "wrap",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* Breakdown Toggle: Quarterly vs Monthly */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span
                 style={{
                   fontSize: "0.825rem",
@@ -323,7 +513,116 @@ export default function ProductSales() {
                   fontWeight: 600,
                 }}
               >
-                Financial Year:
+                View:
+              </span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  background: "var(--surface)",
+                  padding: "3px",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border)",
+                  gap: "4px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleBreakdownChange("quarterly")}
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: "0.78rem",
+                    borderRadius: "var(--radius-sm)",
+                    border: "none",
+                    fontWeight: breakdownType === "quarterly" ? 700 : 500,
+                    background:
+                      breakdownType === "quarterly" ? "var(--primary)" : "transparent",
+                    color:
+                      breakdownType === "quarterly" ? "#ffffff" : "var(--text-muted)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Quarterly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBreakdownChange("monthly")}
+                  style={{
+                    padding: "5px 12px",
+                    fontSize: "0.78rem",
+                    borderRadius: "var(--radius-sm)",
+                    border: "none",
+                    fontWeight: breakdownType === "monthly" ? 700 : 500,
+                    background:
+                      breakdownType === "monthly" ? "var(--primary)" : "transparent",
+                    color:
+                      breakdownType === "monthly" ? "#ffffff" : "var(--text-muted)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
+
+            {/* Period Filter Dropdown */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "0.825rem",
+                  color: "var(--text-muted)",
+                  fontWeight: 600,
+                }}
+              >
+                Period:
+              </span>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                style={{
+                  padding: "6px 28px 6px 12px",
+                  fontSize: "0.825rem",
+                  borderRadius: "var(--radius-md)",
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  color: "var(--text-main)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {breakdownType === "quarterly" ? (
+                  <>
+                    <option value="all">All Quarters (Full FY)</option>
+                    {QUARTER_HEADERS.map((q) => (
+                      <option key={q.key} value={q.key}>
+                        {q.label}
+                      </option>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <option value="all">All 12 Months</option>
+                    {MONTH_HEADERS.map((m) => (
+                      <option key={m.key} value={String(m.monthNumber)}>
+                        {m.fullLabel}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* Financial Year Selector */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "0.825rem",
+                  color: "var(--text-muted)",
+                  fontWeight: 600,
+                }}
+              >
+                FY:
               </span>
               <select
                 value={financialYear}
@@ -353,7 +652,8 @@ export default function ProductSales() {
               </select>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* Cell Display Mode */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span
                 style={{
                   fontSize: "0.825rem",
@@ -361,7 +661,7 @@ export default function ProductSales() {
                   fontWeight: 600,
                 }}
               >
-                Cell Display:
+                Cells:
               </span>
               <div
                 style={{
@@ -377,31 +677,45 @@ export default function ProductSales() {
                   type="button"
                   onClick={() => setViewMode("quantity")}
                   style={{
-                    padding: "5px 12px",
+                    padding: "5px 10px",
                     fontSize: "0.78rem",
                     borderRadius: "var(--radius-sm)",
                     border: "none",
                     fontWeight: viewMode === "quantity" ? 700 : 500,
                     background:
-                      viewMode === "quantity"
-                        ? "var(--primary)"
-                        : "transparent",
+                      viewMode === "quantity" ? "var(--primary)" : "transparent",
                     color:
-                      viewMode === "quantity"
-                        ? "#ffffff"
-                        : "var(--text-muted)",
+                      viewMode === "quantity" ? "#ffffff" : "var(--text-muted)",
                     cursor: "pointer",
                     transition: "all 0.15s ease",
                   }}
                 >
-                  Quantity (Pcs)
+                  Qty
                 </button>
-
+                <button
+                  type="button"
+                  onClick={() => setViewMode("revenue")}
+                  style={{
+                    padding: "5px 10px",
+                    fontSize: "0.78rem",
+                    borderRadius: "var(--radius-sm)",
+                    border: "none",
+                    fontWeight: viewMode === "revenue" ? 700 : 500,
+                    background:
+                      viewMode === "revenue" ? "var(--primary)" : "transparent",
+                    color:
+                      viewMode === "revenue" ? "#ffffff" : "var(--text-muted)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Rev
+                </button>
                 <button
                   type="button"
                   onClick={() => setViewMode("both")}
                   style={{
-                    padding: "5px 12px",
+                    padding: "5px 10px",
                     fontSize: "0.78rem",
                     borderRadius: "var(--radius-sm)",
                     border: "none",
@@ -424,7 +738,7 @@ export default function ProductSales() {
         {/* Matrix Content */}
         {loading ? (
           <div style={{ padding: "60px 20px", textAlign: "center" }}>
-            <LottieLoader message="Generating Quarterly Product Sales Report..." />
+            <LottieLoader message="Generating Product Sales Report..." />
           </div>
         ) : error ? (
           <div
@@ -480,12 +794,16 @@ export default function ProductSales() {
                   >
                     PRODUCT NAME
                   </th>
-                  {QUARTER_HEADERS.map((q) => (
+                  {activeColumns.map((col) => (
                     <th
-                      key={q.key}
-                      style={{ textAlign: "right", minWidth: "120px" }}
+                      key={col.key}
+                      style={{
+                        textAlign: "right",
+                        minWidth: activeColumns.length > 4 ? "90px" : "120px",
+                        whiteSpace: "nowrap",
+                      }}
                     >
-                      {q.label}
+                      {col.label || col.fullLabel}
                     </th>
                   ))}
                   <th
@@ -505,7 +823,7 @@ export default function ProductSales() {
 
               <tbody>
                 {filteredProducts.map((prod, idx) => {
-                  const qList = prod.quarterlyData || prod.monthlyData || [];
+                  const rowTotals = getRowTotals(prod);
                   return (
                     <tr key={prod.medicineName}>
                       {/* Product Name Sticky Column */}
@@ -530,13 +848,13 @@ export default function ProductSales() {
                         </div>
                       </td>
 
-                      {/* 4 Quarter Data Cells */}
-                      {qList.map((q, qIdx) => {
-                        const totalUnits = (q.quantity || 0) + (q.free || 0);
-                        const hasSales = totalUnits > 0 || q.revenue > 0;
+                      {/* Active Column Cells */}
+                      {activeColumns.map((col) => {
+                        const cell = getCellData(prod, col);
+                        const hasSales = cell.totalUnits > 0 || cell.revenue > 0;
                         return (
                           <td
-                            key={qIdx}
+                            key={col.key}
                             style={{
                               textAlign: "right",
                               color: hasSales
@@ -548,13 +866,13 @@ export default function ProductSales() {
                           >
                             {viewMode === "quantity" && (
                               <span>
-                                {hasSales ? formatNumber(totalUnits) : "—"}
+                                {hasSales ? formatNumber(cell.totalUnits) : "—"}
                               </span>
                             )}
 
                             {viewMode === "revenue" && (
                               <span>
-                                {hasSales ? formatCurrency(q.revenue) : "—"}
+                                {hasSales ? formatCurrency(cell.revenue) : "—"}
                               </span>
                             )}
 
@@ -567,7 +885,7 @@ export default function ProductSales() {
                                 }}
                               >
                                 <span style={{ fontWeight: 600 }}>
-                                  {hasSales ? formatCurrency(q.revenue) : "—"}
+                                  {hasSales ? formatCurrency(cell.revenue) : "—"}
                                 </span>
                                 {hasSales && (
                                   <span
@@ -576,7 +894,7 @@ export default function ProductSales() {
                                       color: "var(--text-muted)",
                                     }}
                                   >
-                                    {formatNumber(totalUnits)} pcs
+                                    {formatNumber(cell.totalUnits)} pcs
                                   </span>
                                 )}
                               </div>
@@ -587,12 +905,12 @@ export default function ProductSales() {
 
                       {/* Total Qty */}
                       <td className="total-qty-col" style={{ textAlign: "right", fontWeight: 600 }}>
-                        {formatNumber((prod.totalQuantity || 0) + (prod.totalFree || 0))} Pcs
+                        {formatNumber(rowTotals.quantity)} Pcs
                       </td>
 
                       {/* Total Revenue */}
                       <td className="total-rev-col" style={{ textAlign: "right" }}>
-                        {formatCurrency(prod.totalRevenue)}
+                        {formatCurrency(rowTotals.revenue)}
                       </td>
                     </tr>
                   );
@@ -606,58 +924,53 @@ export default function ProductSales() {
                     className="sticky-col"
                     style={{ textAlign: "left", fontWeight: 800 }}
                   >
-                    QUARTERLY TOTAL
+                    GRAND TOTAL ({filteredProducts.length} {filteredProducts.length === 1 ? "Product" : "Products"})
                   </td>
-                  {(reportData.quarterlyGrandTotals || []).map((q, qIdx) => {
-                    const qTotalUnits = (q.quantity || 0) + (q.free || 0);
-                    return (
-                      <td
-                        key={qIdx}
-                        style={{ textAlign: "right", fontWeight: 700 }}
-                      >
-                        {viewMode === "quantity" && formatNumber(qTotalUnits)}
-                        {viewMode === "revenue" && formatCurrency(q.revenue)}
-                        {viewMode === "both" && (
-                          <div
+
+                  {/* Column Totals */}
+                  {footerTotals.colTotals.map((cTot, cIdx) => (
+                    <td
+                      key={activeColumns[cIdx]?.key || cIdx}
+                      style={{ textAlign: "right", fontWeight: 700 }}
+                    >
+                      {viewMode === "quantity" && formatNumber(cTot.quantity)}
+                      {viewMode === "revenue" && formatCurrency(cTot.revenue)}
+                      {viewMode === "both" && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "2px",
+                          }}
+                        >
+                          <span style={{ fontWeight: 700 }}>{formatCurrency(cTot.revenue)}</span>
+                          <span
                             style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "2px",
+                              fontSize: "0.72rem",
+                              color: "var(--text-muted)",
                             }}
                           >
-                            <span>{formatCurrency(q.revenue)}</span>
-                            <span
-                              style={{
-                                fontSize: "0.72rem",
-                                color: "var(--text-muted)",
-                              }}
-                            >
-                              {formatNumber(qTotalUnits)} pcs
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
+                            {formatNumber(cTot.quantity)} pcs
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                  ))}
+
+                  {/* Grand Total Qty */}
                   <td
                     className="total-qty-col"
                     style={{ textAlign: "right", fontWeight: 800 }}
                   >
-                    {formatNumber(
-                      (reportData.summary.grandTotalQuantity || 0) +
-                        (reportData.summary.grandTotalFree || 0) ||
-                        (reportData.quarterlyGrandTotals || []).reduce(
-                          (acc, q) => acc + (q.quantity || 0) + (q.free || 0),
-                          0
-                        )
-                    )}{" "}
-                    Pcs
+                    {formatNumber(footerTotals.grandTotalQuantity)} Pcs
                   </td>
+
+                  {/* Grand Total Revenue */}
                   <td
                     className="total-rev-col"
                     style={{ textAlign: "right", fontWeight: 800 }}
                   >
-                    {formatCurrency(reportData.summary.grandTotalRevenue)}
+                    {formatCurrency(footerTotals.grandTotalRevenue)}
                   </td>
                 </tr>
               </tfoot>

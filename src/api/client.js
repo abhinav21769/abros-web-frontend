@@ -160,10 +160,12 @@ export const dashboardApi = {
 };
 
 export const gstApi = {
-  quarterlySummary: ({ financialYear, quarter } = {}) => {
+  quarterlySummary: ({ financialYear, quarter, month, periodType } = {}) => {
     const params = new URLSearchParams();
     if (financialYear != null) params.set("financialYear", financialYear);
     if (quarter != null) params.set("quarter", quarter);
+    if (month != null) params.set("month", month);
+    if (periodType != null) params.set("periodType", periodType);
     const query = params.toString();
     return request(`/api/gst/quarterly-summary${query ? `?${query}` : ""}`);
   },
