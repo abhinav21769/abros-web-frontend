@@ -362,7 +362,7 @@ function pickActiveBatch(med) {
   return batches.find((b) => b.quantity > 0) || batches[0] || null;
 }
 
-// PTR shown alongside the billed rate, for reference.
+// PTR is what a sale line is billed at; it defaults from the batch.
 function getBatchPtr(batch, med) {
   if (batch?.ptr != null && batch.ptr !== "") return batch.ptr;
   if (med?.ptr != null && med.ptr !== "") return med.ptr;
@@ -492,8 +492,8 @@ export default function Invoices() {
           discount: String(i.discount ?? 0),
           quantity: String(i.quantity),
           free: String(i.free ?? 0),
-          ptr: String(i.sourceBatch?.ptr ?? i.medicine?.ptr ?? ""),
-          rate: String(i.rate),
+          ptr: String(i.rate),
+          rate: String(i.sourceBatch?.rate ?? i.medicine?.rate ?? ""),
         })),
       });
       setFormErrors({});
@@ -585,17 +585,27 @@ export default function Invoices() {
     }));
   };
 
+  const formInvoiceType = editing?.invoiceType || invoiceType;
+  const formIsPurchase = formInvoiceType === "purchase";
+
+  // A sale is billed at PTR; a purchase at the supplier's rate. Either way the
+  // chosen price is what lands in the line's `rate` field on the payload.
+  const getLinePrice = useCallback(
+    (item) => Number(formIsPurchase ? item.rate : item.ptr) || 0,
+    [formIsPurchase],
+  );
+
   const taxSummary = useMemo(
     () =>
       calculateInvoiceTax(
         form.items.map((item) => ({
           quantity: Number(item.quantity) || 0,
-          rate: Number(item.rate) || 0,
+          rate: getLinePrice(item),
           discount: Number(item.discount) || 0,
           gstRate: Number(item.gstRate) || 5,
         })),
       ),
-    [form.items],
+    [form.items, getLinePrice],
   );
 
   const handleSubmit = async (e) => {
@@ -630,7 +640,7 @@ export default function Invoices() {
         gstRate: Number(item.gstRate) || 5,
         quantity: Number(item.quantity),
         free: Number(item.free) || 0,
-        rate: Number(item.rate),
+        rate: getLinePrice(item),
       })),
     };
 
@@ -735,9 +745,6 @@ export default function Invoices() {
       toast.error(err.message);
     }
   };
-
-  const formInvoiceType = editing?.invoiceType || invoiceType;
-  const formIsPurchase = formInvoiceType === "purchase";
 
   return (
     <>
@@ -1266,35 +1273,56 @@ export default function Invoices() {
                     </div>
 
                     {!formIsPurchase ? (
-                      <div className="input-group input-group-ptr">
-                        <label>PTR (₹)</label>
-                        <input
-                          value={item.ptr === "" ? "—" : item.ptr}
-                          readOnly
-                          tabIndex={-1}
-                          aria-label="PTR from the selected batch"
-                        />
-                      </div>
-                    ) : null}
+                      <>
+                        <div className="input-group input-group-rate">
+                          <label>Rate (₹)</label>
+                          <input
+                            value={item.rate === "" ? "—" : item.rate}
+                            readOnly
+                            tabIndex={-1}
+                            aria-label="Rate of the selected batch"
+                          />
+                        </div>
 
-                    <div className="input-group input-group-rate">
-                      <label>Rate (₹) *</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={item.rate}
-                        onChange={(e) =>
-                          handleItemChange(index, "rate", e.target.value)
-                        }
-                        className={fieldClass(
-                          formErrors,
-                          `items.${index}.rate`,
-                        )}
-                      />
-                      <FieldError message={itemFieldError(index, "rate")} />
-                    </div>
+                        <div className="input-group input-group-ptr">
+                          <label>PTR (₹) *</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={item.ptr}
+                            onChange={(e) =>
+                              handleItemChange(index, "ptr", e.target.value)
+                            }
+                            className={fieldClass(
+                              formErrors,
+                              `items.${index}.ptr`,
+                            )}
+                          />
+                          <FieldError message={itemFieldError(index, "ptr")} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="input-group input-group-rate">
+                        <label>Rate (₹) *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={item.rate}
+                          onChange={(e) =>
+                            handleItemChange(index, "rate", e.target.value)
+                          }
+                          className={fieldClass(
+                            formErrors,
+                            `items.${index}.rate`,
+                          )}
+                        />
+                        <FieldError message={itemFieldError(index, "rate")} />
+                      </div>
+                    )}
 
                     {form.items.length > 1 ? (
                       <button

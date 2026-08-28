@@ -1661,7 +1661,8 @@ select option {
   grid-template-columns: minmax(150px, 2fr) minmax(85px, 1fr) minmax(60px, 0.75fr) minmax(52px, 0.65fr) minmax(52px, 0.65fr) minmax(56px, 0.7fr) minmax(70px, 0.85fr) minmax(78px, 0.95fr) minmax(85px, 1.05fr) 38px;
 }
 
-.input-group-ptr input {
+/* On a sale the rate is a read-only reference; PTR is the billed price. */
+.invoice-single-line-item--sale .input-group-rate input {
   background: var(--surface);
   color: var(--text-muted);
   cursor: default;

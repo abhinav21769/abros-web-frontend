@@ -220,8 +220,11 @@ export function validateInvoiceForm(form, options = {}) {
       }
     }
 
-    const rateError = positiveNumber(item.rate, "Rate");
-    if (rateError) errors[`items.${index}.rate`] = rateError;
+    // Sale lines are billed at PTR; purchase lines at the supplier's rate.
+    const priceField = invoiceType === "purchase" ? "rate" : "ptr";
+    const priceLabel = invoiceType === "purchase" ? "Rate" : "PTR";
+    const priceError = positiveNumber(item[priceField], priceLabel);
+    if (priceError) errors[`items.${index}.${priceField}`] = priceError;
 
     if (item.discount !== "" && item.discount != null) {
       const discount = Number(item.discount);

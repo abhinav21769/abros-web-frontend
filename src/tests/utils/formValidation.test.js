@@ -126,6 +126,45 @@ describe('Form Validation Utilities', () => {
       expect(errors.customer).toBe('Customer is required.');
       expect(errors.items).toBe('Add at least one line item.');
     });
+
+    it('bills a sale line at PTR, so PTR is the required price', () => {
+      const line = { medicine: 'm1', quantity: '1', ptr: '', rate: '80' };
+      const errors = validateInvoiceForm(
+        { invoiceNumber: 'AH-2026-001', invoiceDate: '2026-08-28', customer: 'c1', items: [line] },
+        { invoiceType: 'sale' },
+      );
+
+      expect(errors['items.0.ptr']).toBeDefined();
+      expect(errors['items.0.rate']).toBeUndefined();
+    });
+
+    it('bills a purchase line at rate, so rate is the required price', () => {
+      const line = { medicine: 'm1', quantity: '1', ptr: '76.2', rate: '' };
+      const errors = validateInvoiceForm(
+        {
+          invoiceNumber: 'PO-2026-001',
+          invoiceDate: '2026-08-28',
+          supplier: 'Acme',
+          supplierContact: '9876543210',
+          items: [line],
+        },
+        { invoiceType: 'purchase' },
+      );
+
+      expect(errors['items.0.rate']).toBeDefined();
+      expect(errors['items.0.ptr']).toBeUndefined();
+    });
+
+    it('accepts a sale line priced at PTR with no rate entered', () => {
+      const line = { medicine: 'm1', quantity: '1', ptr: '76.2', rate: '' };
+      const errors = validateInvoiceForm(
+        { invoiceNumber: 'AH-2026-001', invoiceDate: '2026-08-28', customer: 'c1', items: [line] },
+        { invoiceType: 'sale' },
+      );
+
+      expect(errors['items.0.ptr']).toBeUndefined();
+      expect(errors['items.0.rate']).toBeUndefined();
+    });
   });
 
   describe('validatePurchaseForm', () => {
