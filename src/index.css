@@ -1653,7 +1653,19 @@ select option {
 .input-group-free { width: 100%; }
 .input-group-disc { width: 100%; }
 .input-group-gst { width: 100%; }
+.input-group-ptr { width: 100%; }
 .input-group-rate { width: 100%; }
+
+/* Sale lines carry a read-only PTR column between GST and the billed rate. */
+.invoice-single-line-item--sale {
+  grid-template-columns: minmax(150px, 2fr) minmax(85px, 1fr) minmax(60px, 0.75fr) minmax(52px, 0.65fr) minmax(52px, 0.65fr) minmax(56px, 0.7fr) minmax(70px, 0.85fr) minmax(78px, 0.95fr) minmax(85px, 1.05fr) 38px;
+}
+
+.input-group-ptr input {
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: default;
+}
 
 .medicine-select-row {
   display: flex;

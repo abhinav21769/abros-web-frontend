@@ -57,6 +57,7 @@ function makeEmptyItem() {
     discount: "0",
     quantity: "1",
     free: "0",
+    ptr: "",
     rate: "",
   };
 }
@@ -355,6 +356,19 @@ function getMedicineDefaultRate(med, invoiceType = "sale") {
   return med?.rate ?? med.mrp ?? "";
 }
 
+// The batch a sale line draws from when no batch is picked explicitly (FEFO).
+function pickActiveBatch(med) {
+  const batches = med?.batches || [];
+  return batches.find((b) => b.quantity > 0) || batches[0] || null;
+}
+
+// PTR shown alongside the billed rate, for reference.
+function getBatchPtr(batch, med) {
+  if (batch?.ptr != null && batch.ptr !== "") return batch.ptr;
+  if (med?.ptr != null && med.ptr !== "") return med.ptr;
+  return "";
+}
+
 export default function Invoices() {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -386,7 +400,7 @@ export default function Invoices() {
   const fetchItems = useCallback(() => {
     setLoading(true);
     const params = { page, limit, invoiceType };
-    if (search) params.invoiceNumber = search;
+    if (search) params.search = search;
 
     invoicesApi
       .list(params)
@@ -478,6 +492,7 @@ export default function Invoices() {
           discount: String(i.discount ?? 0),
           quantity: String(i.quantity),
           free: String(i.free ?? 0),
+          ptr: String(i.sourceBatch?.ptr ?? i.medicine?.ptr ?? ""),
           rate: String(i.rate),
         })),
       });
@@ -512,13 +527,15 @@ export default function Invoices() {
         const med = medicines.find((m) => m._id === value);
         const type = editing?.invoiceType || invoiceType;
         if (med) {
-          const batches = med.batches || [];
-          const activeBatch = batches.find((b) => b.quantity > 0) || batches[0];
+          const activeBatch = pickActiveBatch(med);
           items[index].medicineName = med.name;
           items[index].batchNumber = activeBatch?.batchNumber || med.batchNumber || "";
           items[index].expiryDate = activeBatch?.expiryDate ? toDateInputValue(activeBatch.expiryDate) : (med.expiryDate ? toDateInputValue(med.expiryDate) : "");
           items[index].mrp = String(activeBatch?.mrp ?? med.mrp ?? "");
-          items[index].rate = String(activeBatch?.rate ?? getMedicineDefaultRate(med, type));
+          items[index].ptr = String(getBatchPtr(activeBatch, med));
+          items[index].rate = String(
+            activeBatch?.rate ?? getMedicineDefaultRate(med, type),
+          );
           items[index].hsn = med.hsn || "";
           items[index].gstRate = String(med.gstRate ?? 5);
         } else {
@@ -526,6 +543,7 @@ export default function Invoices() {
           items[index].batchNumber = "";
           items[index].expiryDate = "";
           items[index].mrp = "";
+          items[index].ptr = "";
           items[index].rate = "";
           items[index].hsn = "";
           items[index].gstRate = "5";
@@ -535,10 +553,14 @@ export default function Invoices() {
       if (field === "batchNumber") {
         const med = medicines.find((m) => m._id === items[index].medicine);
         if (med && med.batches && med.batches.length > 0) {
-          const selectedBatch = med.batches.find((b) => b.batchNumber === value);
+          // No batch picked means FEFO at save time, so mirror that batch here.
+          const selectedBatch =
+            med.batches.find((b) => b.batchNumber === value) ||
+            (value ? null : pickActiveBatch(med));
           if (selectedBatch) {
             items[index].expiryDate = toDateInputValue(selectedBatch.expiryDate);
             items[index].mrp = String(selectedBatch.mrp ?? "");
+            items[index].ptr = String(getBatchPtr(selectedBatch, med));
             items[index].rate = String(selectedBatch.rate ?? items[index].rate);
           }
         }
@@ -751,7 +773,11 @@ export default function Invoices() {
         <div className="toolbar">
           <input
             type="text"
-            placeholder="Search by invoice number..."
+            placeholder={
+              isPurchase
+                ? "Search by invoice number or supplier..."
+                : "Search by invoice number or customer name..."
+            }
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -1054,7 +1080,12 @@ export default function Invoices() {
                 </div>
               ) : (
                 form.items.map((item, index) => (
-                  <div key={item._key || index} className="invoice-single-line-item">
+                  <div
+                    key={item._key || index}
+                    className={`invoice-single-line-item${
+                      formIsPurchase ? "" : " invoice-single-line-item--sale"
+                    }`}
+                  >
                     <div className="input-group input-group-medicine">
                       <div className="input-group-header-row">
                         <label>Medicine *</label>
@@ -1233,6 +1264,18 @@ export default function Invoices() {
                         ))}
                       </select>
                     </div>
+
+                    {!formIsPurchase ? (
+                      <div className="input-group input-group-ptr">
+                        <label>PTR (₹)</label>
+                        <input
+                          value={item.ptr === "" ? "—" : item.ptr}
+                          readOnly
+                          tabIndex={-1}
+                          aria-label="PTR from the selected batch"
+                        />
+                      </div>
+                    ) : null}
 
                     <div className="input-group input-group-rate">
                       <label>Rate (₹) *</label>

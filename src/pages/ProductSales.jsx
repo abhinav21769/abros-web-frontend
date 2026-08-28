@@ -142,8 +142,12 @@ export default function ProductSales() {
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return reportData.products;
     const q = searchTerm.toLowerCase();
-    return reportData.products.filter((p) =>
-      p.medicineName.toLowerCase().includes(q)
+    return reportData.products.filter(
+      (p) =>
+        p.medicineName.toLowerCase().includes(q) ||
+        (p.customerNames &&
+          Array.isArray(p.customerNames) &&
+          p.customerNames.some((c) => c && c.toLowerCase().includes(q)))
     );
   }, [reportData.products, searchTerm]);
 
@@ -297,7 +301,7 @@ export default function ProductSales() {
           <div className="search-box" style={{ maxWidth: 320 }}>
             <input
               type="text"
-              placeholder="Search product by name..."
+              placeholder="Search by product or customer name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

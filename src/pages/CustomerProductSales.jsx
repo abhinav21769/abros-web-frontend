@@ -112,11 +112,11 @@ export default function CustomerProductSales() {
 
   // Active displayed customers based on dropdown selection + search term
   const displayedCustomers = useMemo(() => {
-    if (!selectedCustomerKey) return [];
+    if (!selectedCustomerKey && !searchTerm.trim()) return [];
 
     let list = reportData.customers;
 
-    if (selectedCustomerKey !== "all") {
+    if (selectedCustomerKey && selectedCustomerKey !== "all") {
       list = list.filter((c) => {
         const k = c.customerId || c.customerName;
         return String(k) === String(selectedCustomerKey);
@@ -335,28 +335,26 @@ export default function CustomerProductSales() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            {/* Search Input for Products */}
-            {selectedCustomerKey && (
-              <div style={{ position: "relative", width: "240px" }}>
-                <input
-                  type="text"
-                  placeholder="Filter product..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ width: "100%", paddingLeft: "32px", height: "36px", fontSize: "0.825rem" }}
-                />
-                <Search
-                  size={14}
-                  style={{
-                    position: "absolute",
-                    left: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "var(--text-light)",
-                  }}
-                />
-              </div>
-            )}
+            {/* Search Input for Customer & Product */}
+            <div style={{ position: "relative", width: "240px" }}>
+              <input
+                type="text"
+                placeholder="Search customer or product..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ width: "100%", paddingLeft: "32px", height: "36px", fontSize: "0.825rem" }}
+              />
+              <Search
+                size={14}
+                style={{
+                  position: "absolute",
+                  left: "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-light)",
+                }}
+              />
+            </div>
 
             {/* Financial Year Selector */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -410,7 +408,7 @@ export default function CustomerProductSales() {
               Try Again
             </button>
           </div>
-        ) : !selectedCustomerKey ? (
+        ) : !selectedCustomerKey && !searchTerm.trim() ? (
           /* Empty Selection Prompt */
           <div
             style={{
