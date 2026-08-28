@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import logger from "../utils/logger";
+import { downloadCsv } from "../utils/csvExport";
 import { Link } from "react-router-dom";
 import {
   RefreshCw,
@@ -179,10 +180,10 @@ export default function CustomerProductSales() {
         const dataArr = p.monthlyData || [];
         const cols = dataArr.flatMap((d) => [d.quantity || 0, d.revenue || 0]);
         rows.push([
-          `"${(c.customerName || "").replace(/"/g, '""')}"`,
-          `"${(p.medicineName || "").replace(/"/g, '""')}"`,
-          `"${(c.contact || "").replace(/"/g, '""')}"`,
-          `"${(c.gstin || "").replace(/"/g, '""')}"`,
+          c.customerName || "",
+          p.medicineName || "",
+          c.contact || "",
+          c.gstin || "",
           ...cols,
           p.totalQuantity || 0,
           p.totalRevenue || 0,
@@ -196,29 +197,16 @@ export default function CustomerProductSales() {
     ]);
 
     rows.push([
-      '"GRAND TOTAL"',
-      '""',
-      '""',
-      '""',
+      "GRAND TOTAL",
+      "",
+      "",
+      "",
       ...summaryCols,
       reportData.summary.grandTotalQuantity || 0,
       reportData.summary.grandTotalRevenue || 0,
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Customer_Product_Monthly_Sales_${fyLabel.replace(/\s+/g, "_")}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsv(`Customer_Product_Monthly_Sales_${fyLabel.replace(/\s+/g, "_")}.csv`, headers, rows);
 
     toast?.success?.(`Exported sales report to CSV`);
   };

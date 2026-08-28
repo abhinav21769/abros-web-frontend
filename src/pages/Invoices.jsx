@@ -403,16 +403,16 @@ export default function Invoices() {
   }, [fetchItems]);
 
   const loadFormData = async (type = invoiceType) => {
-    const [custRes, medRes, numRes] = await Promise.all([
-      customersApi.list({ limit: 100 }),
-      medicinesApi.list({ limit: 500, expired: "false" }),
+    const [allCustomers, allMedicines, numRes] = await Promise.all([
+      customersApi.listAll(),
+      medicinesApi.listAll({ expired: "false" }),
       invoicesApi.generateNumber(type),
     ]);
-    setCustomers(custRes.data.items);
-    setMedicines(medRes.data.items);
+    setCustomers(allCustomers);
+    setMedicines(allMedicines);
     return {
       invoiceNumber: numRes.data.invoiceNumber,
-      medicines: medRes.data.items,
+      medicines: allMedicines,
     };
   };
 

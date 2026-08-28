@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import logger from "../utils/logger";
+import { downloadCsv } from "../utils/csvExport";
 import { Link } from "react-router-dom";
 import {
   RefreshCw,
@@ -172,7 +173,7 @@ export default function ProductSales() {
         q.revenue || 0,
       ]);
       return [
-        `"${(p.medicineName || "").replace(/"/g, '""')}"`,
+        p.medicineName || "",
         ...quarterCols,
         (p.totalQuantity || 0) + (p.totalFree || 0),
         p.totalRevenue || 0,
@@ -184,26 +185,17 @@ export default function ProductSales() {
       q.revenue || 0,
     ]);
     rows.push([
-      '"QUARTERLY GRAND TOTAL"',
+      "QUARTERLY GRAND TOTAL",
       ...summaryCols,
       (reportData.summary.grandTotalQuantity || 0) + (reportData.summary.grandTotalFree || 0),
       reportData.summary.grandTotalRevenue || 0,
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Quarterly_Product_Sales_${fyLabel.replace(/\s+/g, "_")}.csv`
+    downloadCsv(
+      `Quarterly_Product_Sales_${fyLabel.replace(/\s+/g, "_")}.csv`,
+      headers,
+      rows
     );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 
     toast?.success?.(`Exported quarterly sales report for ${fyLabel} to CSV`);
   };

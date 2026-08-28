@@ -76,6 +76,25 @@ export const authApi = {
   me: () => request("/api/auth/me"),
 };
 
+// M-6 FIX: pickers used to load one fixed page (100 customers, 500 medicines)
+// and show nothing beyond it, so past those counts a record simply stopped
+// appearing - and the usual response is to create a duplicate. This walks every
+// page so the lists the form searches are always complete.
+async function listAllPages(list, params = {}, pageSize = 200, maxPages = 100) {
+  const items = [];
+  let page = 1;
+
+  for (;;) {
+    const res = await list({ ...params, page, limit: pageSize });
+    items.push(...(res.data?.items || []));
+
+    const totalPages = res.data?.pagination?.totalPages || 1;
+    page += 1;
+
+    if (page > totalPages || page > maxPages) return items;
+  }
+}
+
 export const medicinesApi = {
   list: (params = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -88,6 +107,7 @@ export const medicinesApi = {
     request(`/api/medicines/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (id) => request(`/api/medicines/${id}`, { method: "DELETE" }),
   stats: (days = 30) => request(`/api/medicines/stats?days=${days}`),
+  listAll: (params = {}) => listAllPages(medicinesApi.list, params),
 };
 
 export const customersApi = {
@@ -102,6 +122,7 @@ export const customersApi = {
     request(`/api/customers/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (id) => request(`/api/customers/${id}`, { method: "DELETE" }),
   stats: () => request("/api/customers/stats"),
+  listAll: (params = {}) => listAllPages(customersApi.list, params),
 };
 
 export const invoicesApi = {
