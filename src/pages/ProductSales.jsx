@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import logger from "../utils/logger";
 import { downloadCsv } from "../utils/csvExport";
 import { Link } from "react-router-dom";
@@ -100,6 +100,16 @@ export default function ProductSales() {
   const [breakdownType, setBreakdownType] = useState("quarterly"); // "quarterly" | "monthly"
   const [selectedPeriod, setSelectedPeriod] = useState("all"); // "all" | "q1".."q4" | "4".."3"
   const [viewMode, setViewMode] = useState("quantity"); // "quantity" | "revenue" | "both"
+  const [expandedProducts, setExpandedProducts] = useState(new Set());
+
+  const toggleProduct = (key) => {
+    setExpandedProducts((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const [reportData, setReportData] = useState({
     financialYearLabel: "",
@@ -119,11 +129,14 @@ export default function ProductSales() {
     products: [],
   });
 
-  const fetchReport = async (fy, search = "") => {
+  const fetchReport = async (fy, search = "", isStale = () => false) => {
     setLoading(true);
     setError(null);
     try {
       const res = await dashboardApi.productSales({ financialYear: fy, search });
+      // Guards against a slower, superseded request (e.g. rapidly switching
+      // the FY dropdown) resolving after a newer one and clobbering it.
+      if (isStale()) return;
       if (res && res.data) {
         setReportData({
           financialYearLabel:
@@ -146,16 +159,23 @@ export default function ProductSales() {
         }
       }
     } catch (err) {
+      if (isStale()) return;
       logger.error("Failed to load product sales report", err);
       setError(err.message || "Failed to load sales report");
       toast?.error?.(err.message || "Failed to load sales report");
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReport(financialYear, searchTerm);
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchReport sets loading state up front by design (spinner shows immediately); the cancelled flag below is what actually matters, guarding against a stale response landing after a newer one.
+    fetchReport(financialYear, searchTerm, () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- search is intentionally client-side only (see filteredProducts); refetching per keystroke here would be unnecessary and unpaced by a debounce.
   }, [financialYear]);
 
   const handleBreakdownChange = (type) => {
@@ -195,33 +215,40 @@ export default function ProductSales() {
     }
   }, [breakdownType, selectedPeriod]);
 
-  const getCellData = (prod, col) => {
-    if (breakdownType === "monthly") {
-      const mList = prod.monthlyData || [];
-      const mItem = mList[col.index] || { quantity: 0, free: 0, revenue: 0 };
-      const totalUnits = (mItem.quantity || 0) + (mItem.free || 0);
-      return { totalUnits, revenue: mItem.revenue || 0 };
-    } else {
-      const qList = prod.quarterlyData || [];
-      const qItem = qList[col.index] || { quantity: 0, free: 0, revenue: 0 };
-      const totalUnits = (qItem.quantity || 0) + (qItem.free || 0);
-      return { totalUnits, revenue: qItem.revenue || 0 };
-    }
-  };
+  const getCellData = useCallback(
+    (prod, col) => {
+      if (breakdownType === "monthly") {
+        const mList = prod.monthlyData || [];
+        const mItem = mList[col.index] || { quantity: 0, free: 0, revenue: 0 };
+        const totalUnits = (mItem.quantity || 0) + (mItem.free || 0);
+        return { totalUnits, revenue: mItem.revenue || 0 };
+      } else {
+        const qList = prod.quarterlyData || [];
+        const qItem = qList[col.index] || { quantity: 0, free: 0, revenue: 0 };
+        const totalUnits = (qItem.quantity || 0) + (qItem.free || 0);
+        return { totalUnits, revenue: qItem.revenue || 0 };
+      }
+    },
+    [breakdownType],
+  );
 
-  const getRowTotals = (prod) => {
+  // Always the full financial year, independent of the Period filter - a
+  // "Total" that just repeats the one visible column when filtered to a
+  // single quarter/month isn't a useful total, so this gives a stable
+  // year-to-date figure to compare each filtered period against.
+  const getRowTotals = useCallback((prod) => {
+    const source = prod.quarterlyData || [];
     let rowUnits = 0;
     let rowRev = 0;
-    activeColumns.forEach((col) => {
-      const cell = getCellData(prod, col);
-      rowUnits += cell.totalUnits;
-      rowRev += cell.revenue;
+    source.forEach((q) => {
+      rowUnits += (q.quantity || 0) + (q.free || 0);
+      rowRev += q.revenue || 0;
     });
     return {
       quantity: rowUnits,
       revenue: Math.round(rowRev * 100) / 100,
     };
-  };
+  }, []);
 
   const footerTotals = useMemo(() => {
     const colTotals = activeColumns.map((col) => {
@@ -251,7 +278,7 @@ export default function ProductSales() {
       grandTotalQuantity: grandQty,
       grandTotalRevenue: Math.round(grandRev * 100) / 100,
     };
-  }, [filteredProducts, activeColumns, breakdownType]);
+  }, [filteredProducts, activeColumns, getCellData, getRowTotals]);
 
   const exportToCSV = () => {
     if (!filteredProducts || filteredProducts.length === 0) {
@@ -805,8 +832,12 @@ export default function ProductSales() {
               <tbody>
                 {filteredProducts.map((prod, idx) => {
                   const rowTotals = getRowTotals(prod);
+                  const rowKey = prod.id || prod.medicineName;
+                  const hasBatchBreakdown = prod.batchBreakdown && prod.batchBreakdown.length > 1;
+                  const isExpanded = hasBatchBreakdown && expandedProducts.has(rowKey);
                   return (
-                    <tr key={prod.medicineName}>
+                    <Fragment key={rowKey}>
+                    <tr>
                       {/* Product Name Sticky Column */}
                       <td className="sticky-col" style={{ fontWeight: 600 }}>
                         <div
@@ -826,6 +857,30 @@ export default function ProductSales() {
                             {idx + 1}.
                           </span>
                           <span>{prod.medicineName}</span>
+                          {hasBatchBreakdown && (
+                            <button
+                              type="button"
+                              onClick={() => toggleProduct(rowKey)}
+                              title={isExpanded ? "Hide batch breakdown" : "Show batch breakdown"}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                padding: "2px 8px",
+                                borderRadius: "999px",
+                                border: "1px solid var(--border)",
+                                background: isExpanded ? "var(--primary)" : "var(--surface-elevated)",
+                                color: isExpanded ? "#ffffff" : "var(--text-muted)",
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <Layers size={11} />
+                              {prod.batchBreakdown.length}
+                            </button>
+                          )}
                         </div>
                       </td>
 
@@ -894,6 +949,59 @@ export default function ProductSales() {
                         {formatCurrency(rowTotals.revenue)}
                       </td>
                     </tr>
+                    {isExpanded && (
+                      <tr style={{ background: "var(--surface-elevated)" }}>
+                        <td colSpan={activeColumns.length + 3} style={{ padding: "12px 16px 16px 46px" }}>
+                          <div
+                            style={{
+                              fontSize: "0.78rem",
+                              fontWeight: 700,
+                              color: "var(--text-main)",
+                              marginBottom: 8,
+                            }}
+                          >
+                            Per-batch breakdown — {currentFYLabel}
+                          </div>
+                          <table style={{ width: "100%", maxWidth: 560, fontSize: "0.8rem" }}>
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: "left", padding: "6px 10px", color: "var(--text-muted)" }}>
+                                  Batch No.
+                                </th>
+                                <th style={{ textAlign: "right", padding: "6px 10px", color: "var(--text-muted)" }}>
+                                  Qty Sold
+                                </th>
+                                <th style={{ textAlign: "right", padding: "6px 10px", color: "var(--text-muted)" }}>
+                                  Free
+                                </th>
+                                <th style={{ textAlign: "right", padding: "6px 10px", color: "var(--text-muted)" }}>
+                                  Revenue
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {prod.batchBreakdown.map((b) => (
+                                <tr key={b.batchNumber}>
+                                  <td style={{ padding: "6px 10px", fontFamily: "monospace", fontWeight: 600 }}>
+                                    {b.batchNumber}
+                                  </td>
+                                  <td style={{ padding: "6px 10px", textAlign: "right" }}>
+                                    {formatNumber(b.totalQuantity)}
+                                  </td>
+                                  <td style={{ padding: "6px 10px", textAlign: "right", color: "var(--text-muted)" }}>
+                                    {b.totalFree > 0 ? formatNumber(b.totalFree) : "—"}
+                                  </td>
+                                  <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600 }}>
+                                    {formatCurrency(b.totalRevenue)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>

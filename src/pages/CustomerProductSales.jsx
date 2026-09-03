@@ -7,7 +7,6 @@ import {
   FileSpreadsheet,
   AlertCircle,
   BarChart3,
-  Building2,
   Layers,
   Search,
   UserCheck,
@@ -68,7 +67,7 @@ export default function CustomerProductSales() {
     customers: [],
   });
 
-  const fetchReport = async (fy, search = "") => {
+  const fetchReport = async (fy, search = "", isStale = () => false) => {
     setLoading(true);
     setError(null);
     try {
@@ -76,6 +75,9 @@ export default function CustomerProductSales() {
         financialYear: fy,
         search,
       });
+      // Guards against a slower, superseded request (e.g. rapidly switching
+      // the FY dropdown) resolving after a newer one and clobbering it.
+      if (isStale()) return;
       if (res && res.data) {
         const custs = res.data.customers || [];
         setReportData({
@@ -98,16 +100,23 @@ export default function CustomerProductSales() {
         }
       }
     } catch (err) {
+      if (isStale()) return;
       logger.error("Failed to load customer x product monthly sales report", err);
       setError(err.message || "Failed to load report");
       toast?.error?.(err.message || "Failed to load report");
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReport(financialYear, searchTerm);
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchReport sets loading state up front by design (spinner shows immediately); the cancelled flag below is what actually matters, guarding against a stale response landing after a newer one.
+    fetchReport(financialYear, searchTerm, () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- search is intentionally client-side only; refetching per keystroke here would be unnecessary and unpaced by a debounce.
   }, [financialYear]);
 
   // Active displayed customers based on dropdown selection + search term
@@ -557,7 +566,7 @@ export default function CustomerProductSales() {
                     </thead>
                     <tbody>
                       {(cust.products || []).map((prod) => (
-                        <tr key={prod.medicineName}>
+                        <tr key={prod.id || prod.medicineName}>
                           <td
                             style={{
                               paddingLeft: "20px",
