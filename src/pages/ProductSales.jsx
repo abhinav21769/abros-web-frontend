@@ -861,7 +861,10 @@ export default function ProductSales() {
                             <button
                               type="button"
                               onClick={() => toggleProduct(rowKey)}
-                              title={isExpanded ? "Hide batch breakdown" : "Show batch breakdown"}
+                              title={
+                                (isExpanded ? "Hide" : "Show") +
+                                " which batch labels this product's sales were recorded against - this reflects what each invoice line said at the time of sale, not the batches currently in stock (see Inventory for that)."
+                              }
                               style={{
                                 display: "inline-flex",
                                 alignItems: "center",
@@ -878,7 +881,7 @@ export default function ProductSales() {
                               }}
                             >
                               <Layers size={11} />
-                              {prod.batchBreakdown.length}
+                              {prod.batchBreakdown.length} sold
                             </button>
                           )}
                         </div>
@@ -952,15 +955,14 @@ export default function ProductSales() {
                     {isExpanded && (
                       <tr style={{ background: "var(--surface-elevated)" }}>
                         <td colSpan={activeColumns.length + 3} style={{ padding: "12px 16px 16px 46px" }}>
-                          <div
-                            style={{
-                              fontSize: "0.78rem",
-                              fontWeight: 700,
-                              color: "var(--text-main)",
-                              marginBottom: 8,
-                            }}
-                          >
-                            Per-batch breakdown — {currentFYLabel}
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-main)" }}>
+                              Sales by batch label — {currentFYLabel}
+                            </div>
+                            <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
+                              Reflects what each sale recorded at the time - may not match the batches currently in
+                              stock (see Inventory).
+                            </div>
                           </div>
                           <table style={{ width: "100%", maxWidth: 560, fontSize: "0.8rem" }}>
                             <thead>
