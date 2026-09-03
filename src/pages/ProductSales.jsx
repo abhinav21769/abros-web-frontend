@@ -964,7 +964,7 @@ export default function ProductSales() {
                               stock (see Inventory).
                             </div>
                           </div>
-                          <table style={{ width: "100%", maxWidth: 560, fontSize: "0.8rem" }}>
+                          <table style={{ width: "100%", maxWidth: 680, fontSize: "0.8rem" }}>
                             <thead>
                               <tr>
                                 <th style={{ textAlign: "left", padding: "6px 10px", color: "var(--text-muted)" }}>
@@ -979,6 +979,9 @@ export default function ProductSales() {
                                 <th style={{ textAlign: "right", padding: "6px 10px", color: "var(--text-muted)" }}>
                                   Revenue
                                 </th>
+                                <th style={{ textAlign: "right", padding: "6px 10px", color: "var(--text-muted)" }}>
+                                  Current Stock
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -986,6 +989,18 @@ export default function ProductSales() {
                                 <tr key={b.batchNumber}>
                                   <td style={{ padding: "6px 10px", fontFamily: "monospace", fontWeight: 600 }}>
                                     {b.batchNumber}
+                                    {b.totalQuantity === 0 && (
+                                      <span
+                                        style={{
+                                          marginLeft: 6,
+                                          fontSize: "0.65rem",
+                                          fontWeight: 600,
+                                          color: "var(--text-muted)",
+                                        }}
+                                      >
+                                        not sold yet
+                                      </span>
+                                    )}
                                   </td>
                                   <td style={{ padding: "6px 10px", textAlign: "right" }}>
                                     {formatNumber(b.totalQuantity)}
@@ -995,6 +1010,9 @@ export default function ProductSales() {
                                   </td>
                                   <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600 }}>
                                     {formatCurrency(b.totalRevenue)}
+                                  </td>
+                                  <td style={{ padding: "6px 10px", textAlign: "right", color: "var(--text-muted)" }}>
+                                    {b.currentStock != null ? formatNumber(b.currentStock) : "—"}
                                   </td>
                                 </tr>
                               ))}
