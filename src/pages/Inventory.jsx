@@ -13,6 +13,7 @@ import {
   clearFieldError,
   fieldClass,
   hasErrors,
+  validateBatchForm,
   validateMedicineForm,
 } from "../utils/formValidation";
 
@@ -54,6 +55,20 @@ function formatCurrency(value) {
   }).format(Number(value) || 0);
 }
 
+// null when every batch agrees (nothing to range over) - the caller then
+// falls back to displaying the medicine's single mirrored value.
+function batchRange(batches, field) {
+  if (!batches || batches.length < 2) return null;
+  const values = batches.map((b) => Number(b[field]) || 0);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return min === max ? null : { min, max };
+}
+
+function formatRange(range) {
+  return `${formatCurrency(range.min)} – ${formatCurrency(range.max)}`;
+}
+
 function getExpiryBadge(expiryDate) {
   if (!expiryDate) return <span className="badge badge-neutral">Active</span>;
   const today = new Date();
@@ -90,7 +105,9 @@ export default function Inventory() {
     rate: "",
     quantity: "",
   });
+  const [batchFormErrors, setBatchFormErrors] = useState({});
   const [savingBatch, setSavingBatch] = useState(false);
+  const [deletingBatchKey, setDeletingBatchKey] = useState(null);
 
   const toggleRow = (id) => {
     setExpandedRows((prev) => {
@@ -113,6 +130,7 @@ export default function Inventory() {
       ptr: initialMrp ? String(calcPtr(initialMrp)) : "",
       quantity: "0",
     });
+    setBatchFormErrors({});
     setBatchModalOpen(true);
   };
 
@@ -128,18 +146,45 @@ export default function Inventory() {
       ptr: String(batch.ptr ?? (mrpStr ? calcPtr(mrpStr) : "")),
       quantity: String(batch.quantity ?? 0),
     });
+    setBatchFormErrors({});
     setBatchModalOpen(true);
   };
 
   const handleSaveBatch = async (e) => {
     e.preventDefault();
-    if (!batchForm.batchNumber.trim() || !batchForm.expiryDate) {
-      toast.error("Batch number and expiry date are required.");
-      return;
-    }
+    const isEditingBatch = targetBatchIndex >= 0;
+    const originalBatchNumber = isEditingBatch
+      ? targetMedicine.batches?.[targetBatchIndex]?.batchNumber
+      : null;
+
     setSavingBatch(true);
     try {
-      const existingBatches = [...(targetMedicine.batches || [])];
+      // Re-fetch right before writing so this merges onto current stock, not
+      // a snapshot from whenever the list was last loaded - another sale or
+      // edit could have changed this medicine's batches in the meantime.
+      const fresh = await medicinesApi.get(targetMedicine._id);
+      const freshBatches = [...(fresh.data.batches || [])];
+
+      let excludeIndex = -1;
+      if (isEditingBatch) {
+        excludeIndex = freshBatches.findIndex(
+          (b) => (b.batchNumber || "").toLowerCase() === (originalBatchNumber || "").toLowerCase(),
+        );
+        if (excludeIndex === -1) {
+          toast.error("This batch no longer exists - it may have changed elsewhere. Refreshing the list.");
+          setBatchModalOpen(false);
+          fetchItems();
+          return;
+        }
+      }
+
+      const errors = validateBatchForm(batchForm, { existingBatches: freshBatches, excludeIndex });
+      setBatchFormErrors(errors);
+      if (hasErrors(errors)) {
+        toast.error("Please fix the highlighted fields.");
+        return;
+      }
+
       const newBatchData = {
         batchNumber: batchForm.batchNumber.trim(),
         expiryDate: new Date(batchForm.expiryDate).toISOString(),
@@ -149,19 +194,14 @@ export default function Inventory() {
         quantity: Number(batchForm.quantity) || 0,
       };
 
-      if (targetBatchIndex >= 0) {
-        existingBatches[targetBatchIndex] = {
-          ...existingBatches[targetBatchIndex],
-          ...newBatchData,
-        };
+      if (isEditingBatch) {
+        freshBatches[excludeIndex] = { ...freshBatches[excludeIndex], ...newBatchData };
       } else {
-        existingBatches.push(newBatchData);
+        freshBatches.push(newBatchData);
       }
 
-      const res = await medicinesApi.update(targetMedicine._id, {
-        batches: existingBatches,
-      });
-      toast.success(targetBatchIndex >= 0 ? "Batch updated successfully!" : "New batch added successfully!");
+      await medicinesApi.update(targetMedicine._id, { batches: freshBatches });
+      toast.success(isEditingBatch ? "Batch updated successfully!" : "New batch added successfully!");
       setBatchModalOpen(false);
       fetchItems();
     } catch (err) {
@@ -173,16 +213,43 @@ export default function Inventory() {
 
   const handleDeleteBatch = async (medicine, batchIdx) => {
     const batch = medicine.batches?.[batchIdx];
-    if (!confirm(`Delete batch "${batch?.batchNumber || "Selected"}" from ${medicine.name}?`)) return;
+    const batchNumber = batch?.batchNumber;
+    if ((medicine.batches?.length || 0) <= 1) {
+      toast.error(
+        "Can't delete a medicine's only batch here - delete the medicine itself if you want to remove it entirely.",
+      );
+      return;
+    }
+    if (!confirm(`Delete batch "${batchNumber || "Selected"}" from ${medicine.name}?`)) return;
+
+    const key = `${medicine._id}:${batchNumber}`;
+    setDeletingBatchKey(key);
     try {
-      const updatedBatches = (medicine.batches || []).filter((_, i) => i !== batchIdx);
-      const res = await medicinesApi.update(medicine._id, {
-        batches: updatedBatches,
-      });
-      toast.success(`Batch ${batch?.batchNumber || ""} deleted`);
+      // Re-fetch and locate the batch by number rather than trusting the
+      // stale index, in case another edit changed the batch order/count.
+      const fresh = await medicinesApi.get(medicine._id);
+      const freshBatches = fresh.data.batches || [];
+      if (freshBatches.length <= 1) {
+        toast.error("This is now the medicine's only batch - delete the medicine itself instead.");
+        fetchItems();
+        return;
+      }
+      const freshIdx = freshBatches.findIndex(
+        (b) => (b.batchNumber || "").toLowerCase() === (batchNumber || "").toLowerCase(),
+      );
+      if (freshIdx === -1) {
+        toast.error("This batch no longer exists - it may have already been removed elsewhere.");
+        fetchItems();
+        return;
+      }
+      const updatedBatches = freshBatches.filter((_, i) => i !== freshIdx);
+      await medicinesApi.update(medicine._id, { batches: updatedBatches });
+      toast.success(`Batch ${batchNumber || ""} deleted`);
       fetchItems();
     } catch (err) {
       toast.error(err.message || "Failed to delete batch");
+    } finally {
+      setDeletingBatchKey(null);
     }
   };
 
@@ -242,7 +309,7 @@ export default function Inventory() {
     const count = item?.batches?.length || 1;
     if (!confirm(`Delete medicine master product "${item?.name || ""}" and all its ${count} batch(es)?`)) return;
     try {
-      const res = await medicinesApi.delete(id);
+      const res = await medicinesApi.remove(id);
       toast.success(res.message);
       fetchItems();
     } catch (err) {
@@ -252,7 +319,7 @@ export default function Inventory() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const errors = validateMedicineForm(form);
+    const errors = validateMedicineForm(form, { isEditing: !!editing });
     const isSingleBatchEdit = editing && (editing.batches?.length || 1) <= 1;
     const isCreating = !editing;
 
@@ -383,23 +450,31 @@ export default function Inventory() {
                 <tbody>
                   {items.map((item) => {
                     const batchList = item.batches && item.batches.length > 0 ? item.batches : [];
-                    const isExpanded = expandedRows.has(item._id);
                     const batchCount = batchList.length > 0 ? batchList.length : 1;
+                    const hasMultipleBatches = batchCount > 1;
+                    const isExpanded = hasMultipleBatches && expandedRows.has(item._id);
+                    const mrpRange = batchRange(batchList, "mrp");
+                    const rateRange = batchRange(batchList, "rate");
+                    const ptrRange = batchRange(batchList, "ptr");
 
                     return (
                       <Fragment key={item._id}>
                         <tr>
                           <td>
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                onClick={() => toggleRow(item._id)}
-                                style={{ padding: 2, minWidth: "auto" }}
-                                title="Toggle batch list"
-                              >
-                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                              </button>
+                              {hasMultipleBatches ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => toggleRow(item._id)}
+                                  style={{ padding: 2, minWidth: "auto" }}
+                                  title={isExpanded ? "Hide batch breakdown" : "Show batch breakdown"}
+                                >
+                                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                </button>
+                              ) : (
+                                <span style={{ display: "inline-block", width: 16 }} aria-hidden="true" />
+                              )}
                               <div>
                                 <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.9rem" }}>
                                   {item.name}
@@ -421,22 +496,27 @@ export default function Inventory() {
                           <td>{item.packagingType}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{item.hsn || "—"}</td>
                           <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
-                            {batchCount > 1 ? (
-                              <span className="badge badge-neutral" style={{ cursor: "pointer" }} onClick={() => toggleRow(item._id)}>
-                                {batchCount} Batches
-                              </span>
+                            {hasMultipleBatches ? (
+                              <button
+                                type="button"
+                                className="badge badge-neutral"
+                                style={{ cursor: "pointer", border: "none" }}
+                                onClick={() => toggleRow(item._id)}
+                              >
+                                {batchCount} batches
+                              </button>
                             ) : (
-                              <span style={{ cursor: "pointer" }} onClick={() => toggleRow(item._id)}>
-                                {item.batchNumber || "—"}
-                              </span>
+                              item.batchNumber || "—"
                             )}
                           </td>
-                          <td>{formatDate(item.expiryDate)}</td>
+                          <td title={hasMultipleBatches ? "Nearest expiry across all batches" : undefined}>
+                            {formatDate(item.expiryDate)}
+                          </td>
                           <td style={{ fontWeight: 600 }}>{item.quantity}</td>
-                          <td>{formatCurrency(item.mrp)}</td>
-                          <td>{formatCurrency(item.rate)}</td>
+                          <td>{mrpRange ? formatRange(mrpRange) : formatCurrency(item.mrp)}</td>
+                          <td>{rateRange ? formatRange(rateRange) : formatCurrency(item.rate)}</td>
                           <td>{item.gstRate ?? 5}%</td>
-                          <td>{formatCurrency(item.ptr)}</td>
+                          <td>{ptrRange ? formatRange(ptrRange) : formatCurrency(item.ptr)}</td>
                           <td>{getExpiryBadge(item.expiryDate)}</td>
                           <td>
                             <div className="actions-cell">
@@ -489,41 +569,46 @@ export default function Inventory() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {batchList.map((b, idx) => (
-                                    <tr key={b._id || idx}>
-                                      <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
-                                        {b.batchNumber || "—"}
-                                      </td>
-                                      <td>{formatDate(b.expiryDate)}</td>
-                                      <td>{formatCurrency(b.mrp)}</td>
-                                      <td>{formatCurrency(b.rate)}</td>
-                                      <td>{formatCurrency(b.ptr)}</td>
-                                      <td style={{ fontWeight: 700 }}>{b.quantity}</td>
-                                      <td>{getExpiryBadge(b.expiryDate)}</td>
-                                      <td>
-                                        <div className="actions-cell" style={{ justifyContent: "flex-end" }}>
-                                          <button
-                                            type="button"
-                                            className="btn btn-ghost btn-sm"
-                                            onClick={() => openEditBatch(item, b, idx)}
-                                            aria-label="Edit batch"
-                                            title="Edit batch"
-                                          >
-                                            <Pencil size={14} />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            className="btn btn-ghost btn-sm"
-                                            onClick={() => handleDeleteBatch(item, idx)}
-                                            aria-label="Delete batch"
-                                            title="Delete batch"
-                                          >
-                                            <Trash2 size={14} color="var(--danger)" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
+                                  {batchList.map((b, idx) => {
+                                    const isDeletingThis = deletingBatchKey === `${item._id}:${b.batchNumber}`;
+                                    return (
+                                      <tr key={b._id || idx}>
+                                        <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
+                                          {b.batchNumber || "—"}
+                                        </td>
+                                        <td>{formatDate(b.expiryDate)}</td>
+                                        <td>{formatCurrency(b.mrp)}</td>
+                                        <td>{formatCurrency(b.rate)}</td>
+                                        <td>{formatCurrency(b.ptr)}</td>
+                                        <td style={{ fontWeight: 700 }}>{b.quantity}</td>
+                                        <td>{getExpiryBadge(b.expiryDate)}</td>
+                                        <td>
+                                          <div className="actions-cell" style={{ justifyContent: "flex-end" }}>
+                                            <button
+                                              type="button"
+                                              className="btn btn-ghost btn-sm"
+                                              onClick={() => openEditBatch(item, b, idx)}
+                                              aria-label="Edit batch"
+                                              title="Edit batch"
+                                              disabled={isDeletingThis}
+                                            >
+                                              <Pencil size={14} />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="btn btn-ghost btn-sm"
+                                              onClick={() => handleDeleteBatch(item, idx)}
+                                              aria-label="Delete batch"
+                                              title="Delete batch"
+                                              disabled={isDeletingThis}
+                                            >
+                                              <Trash2 size={14} color="var(--danger)" />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </td>
@@ -774,19 +859,27 @@ export default function Inventory() {
               <label>Batch Number *</label>
               <input
                 value={batchForm.batchNumber}
-                onChange={(e) => setBatchForm((prev) => ({ ...prev, batchNumber: e.target.value }))}
+                onChange={(e) => {
+                  setBatchForm((prev) => ({ ...prev, batchNumber: e.target.value }));
+                  setBatchFormErrors((prev) => clearFieldError(prev, "batchNumber"));
+                }}
                 placeholder="e.g. B-101"
-                required
+                className={fieldClass(batchFormErrors, "batchNumber")}
               />
+              <FieldError message={batchFormErrors.batchNumber} />
             </div>
             <div className="input-group">
               <label>Expiry Date *</label>
               <input
                 type="date"
                 value={batchForm.expiryDate}
-                onChange={(e) => setBatchForm((prev) => ({ ...prev, expiryDate: e.target.value }))}
-                required
+                onChange={(e) => {
+                  setBatchForm((prev) => ({ ...prev, expiryDate: e.target.value }));
+                  setBatchFormErrors((prev) => clearFieldError(prev, "expiryDate"));
+                }}
+                className={fieldClass(batchFormErrors, "expiryDate")}
               />
+              <FieldError message={batchFormErrors.expiryDate} />
             </div>
             <div className="input-group">
               <label>MRP (₹) *</label>
@@ -802,9 +895,11 @@ export default function Inventory() {
                     mrp: val,
                     ptr: String(calcPtr(val)),
                   }));
+                  setBatchFormErrors((prev) => clearFieldError(prev, "mrp"));
                 }}
-                required
+                className={fieldClass(batchFormErrors, "mrp")}
               />
+              <FieldError message={batchFormErrors.mrp} />
             </div>
             <div className="input-group">
               <label>Rate (₹) *</label>
@@ -813,9 +908,13 @@ export default function Inventory() {
                 min="0"
                 step="0.01"
                 value={batchForm.rate}
-                onChange={(e) => setBatchForm((prev) => ({ ...prev, rate: e.target.value }))}
-                required
+                onChange={(e) => {
+                  setBatchForm((prev) => ({ ...prev, rate: e.target.value }));
+                  setBatchFormErrors((prev) => clearFieldError(prev, "rate"));
+                }}
+                className={fieldClass(batchFormErrors, "rate")}
               />
+              <FieldError message={batchFormErrors.rate} />
             </div>
             <div className="input-group">
               <label>PTR (₹)</label>
@@ -834,9 +933,13 @@ export default function Inventory() {
                 type="number"
                 min="0"
                 value={batchForm.quantity}
-                onChange={(e) => setBatchForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                required
+                onChange={(e) => {
+                  setBatchForm((prev) => ({ ...prev, quantity: e.target.value }));
+                  setBatchFormErrors((prev) => clearFieldError(prev, "quantity"));
+                }}
+                className={fieldClass(batchFormErrors, "quantity")}
               />
+              <FieldError message={batchFormErrors.quantity} />
             </div>
           </form>
         </Modal>

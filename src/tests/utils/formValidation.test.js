@@ -5,6 +5,7 @@ import {
   validateLoginForm,
   validateCustomerForm,
   validateMedicineForm,
+  validateBatchForm,
   validateInvoiceForm,
   validatePurchaseForm,
 } from '../../utils/formValidation';
@@ -109,6 +110,103 @@ describe('Form Validation Utilities', () => {
       });
 
       expect(errors.expiryDate).toBe('Expiry date must be in the future.');
+    });
+
+    it('allows a past expiry date when editing existing stock', () => {
+      const errors = validateMedicineForm(
+        {
+          name: 'Paracetamol',
+          packagingType: '10 Tabs',
+          expiryDate: '2020-01-01',
+          mrp: '50',
+          rate: '40',
+        },
+        { isEditing: true },
+      );
+
+      expect(errors.expiryDate).toBeUndefined();
+    });
+  });
+
+  describe('validateBatchForm', () => {
+    const future = (() => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() + 1);
+      return d.toISOString().split('T')[0];
+    })();
+
+    const validForm = {
+      batchNumber: 'B-101',
+      expiryDate: future,
+      mrp: '100',
+      rate: '80',
+      quantity: '10',
+    };
+
+    it('passes for a valid new batch', () => {
+      const errors = validateBatchForm(validForm, { existingBatches: [] });
+      expect(hasErrors(errors)).toBe(false);
+    });
+
+    it('rejects a batch number that duplicates an existing sibling batch', () => {
+      const errors = validateBatchForm(validForm, {
+        existingBatches: [{ batchNumber: 'b-101' }, { batchNumber: 'B-202' }],
+      });
+      expect(errors.batchNumber).toBe('This medicine already has a batch with this number.');
+    });
+
+    it('excludes the batch being edited from its own duplicate check', () => {
+      const errors = validateBatchForm(validForm, {
+        existingBatches: [{ batchNumber: 'B-101' }, { batchNumber: 'B-202' }],
+        excludeIndex: 0,
+      });
+      expect(errors.batchNumber).toBeUndefined();
+    });
+
+    it('still catches a rename onto a different sibling while editing', () => {
+      const errors = validateBatchForm(validForm, {
+        existingBatches: [{ batchNumber: 'OLD-NUMBER' }, { batchNumber: 'B-101' }],
+        excludeIndex: 0,
+      });
+      expect(errors.batchNumber).toBe('This medicine already has a batch with this number.');
+    });
+
+    it('requires a future expiry date for a new batch', () => {
+      const errors = validateBatchForm(
+        { ...validForm, expiryDate: '2020-01-01' },
+        { existingBatches: [] },
+      );
+      expect(errors.expiryDate).toBe('Expiry date must be in the future.');
+    });
+
+    it('allows a past expiry date when editing an existing (already expired) batch', () => {
+      const errors = validateBatchForm(
+        { ...validForm, expiryDate: '2020-01-01' },
+        { existingBatches: [{ batchNumber: 'B-101' }], excludeIndex: 0 },
+      );
+      expect(errors.expiryDate).toBeUndefined();
+    });
+
+    it('rejects a zero or missing MRP/rate instead of silently accepting it', () => {
+      const errors = validateBatchForm(
+        { ...validForm, mrp: '', rate: '0' },
+        { existingBatches: [] },
+      );
+      expect(errors.mrp).toBeTruthy();
+      expect(errors.rate).toBeTruthy();
+    });
+
+    it('rejects rate greater than MRP', () => {
+      const errors = validateBatchForm(
+        { ...validForm, mrp: '50', rate: '60' },
+        { existingBatches: [] },
+      );
+      expect(errors.rate).toBe('Rate cannot be greater than MRP.');
+    });
+
+    it('rejects a negative or fractional quantity', () => {
+      const errors = validateBatchForm({ ...validForm, quantity: '-1' }, { existingBatches: [] });
+      expect(errors.quantity).toBeTruthy();
     });
   });
 

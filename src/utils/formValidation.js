@@ -51,15 +51,26 @@ function integerAtLeast(value, label, min) {
 }
 
 function futureDate(value, label) {
+  const message = requiredDate(value, label);
+  if (message) return message;
+
+  const date = new Date(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (date <= today) return `${label} must be in the future.`;
+
+  return "";
+}
+
+// Like futureDate but allows a date in the past - for editing stock that has
+// already expired (a normal state to track), as opposed to creating new
+// stock with an already-past expiry (almost always a data entry mistake).
+function requiredDate(value, label) {
   const message = required(value, label);
   if (message) return message;
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return `${label} is invalid.`;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (date <= today) return `${label} must be in the future.`;
 
   return "";
 }
@@ -119,7 +130,7 @@ export function validateCustomerForm(form) {
   return errors;
 }
 
-export function validateMedicineForm(form) {
+export function validateMedicineForm(form, { isEditing = false } = {}) {
   const errors = {};
 
   const nameError = required(form.name, "Medicine name");
@@ -128,7 +139,11 @@ export function validateMedicineForm(form) {
   const packagingError = required(form.packagingType, "Packaging type");
   if (packagingError) errors.packagingType = packagingError;
 
-  const expiryError = futureDate(form.expiryDate, "Expiry date");
+  // Editing existing stock must allow an already-past expiry (it may already
+  // be expired); only creating new stock requires a future date.
+  const expiryError = isEditing
+    ? requiredDate(form.expiryDate, "Expiry date")
+    : futureDate(form.expiryDate, "Expiry date");
   if (expiryError) errors.expiryDate = expiryError;
 
   const mrpError = positiveNumber(form.mrp, "MRP");
@@ -156,6 +171,49 @@ export function validateMedicineForm(form) {
     "HSN must be 4 to 8 digits.",
   );
   if (hsnError) errors.hsn = hsnError;
+
+  return errors;
+}
+
+// existingBatches/excludeIndex let the caller check a batch number against
+// its siblings on the same medicine (excluding itself when editing) -
+// duplicate batch numbers on one medicine make the duplicate unreachable by
+// FEFO/explicit-batch stock lookups, which only ever match the first one.
+export function validateBatchForm(form, { existingBatches = [], excludeIndex = -1 } = {}) {
+  const errors = {};
+  const isNew = excludeIndex < 0;
+
+  const batchNumberError = required(form.batchNumber, "Batch number");
+  if (batchNumberError) {
+    errors.batchNumber = batchNumberError;
+  } else {
+    const trimmed = form.batchNumber.trim().toLowerCase();
+    const isDuplicate = existingBatches.some(
+      (b, idx) =>
+        idx !== excludeIndex && (b.batchNumber || "").trim().toLowerCase() === trimmed,
+    );
+    if (isDuplicate) {
+      errors.batchNumber = "This medicine already has a batch with this number.";
+    }
+  }
+
+  const expiryError = isNew
+    ? futureDate(form.expiryDate, "Expiry date")
+    : requiredDate(form.expiryDate, "Expiry date");
+  if (expiryError) errors.expiryDate = expiryError;
+
+  const mrpError = positiveNumber(form.mrp, "MRP");
+  if (mrpError) errors.mrp = mrpError;
+
+  const rateError = positiveNumber(form.rate, "Rate");
+  if (rateError) errors.rate = rateError;
+
+  if (!errors.mrp && !errors.rate && Number(form.rate) > Number(form.mrp)) {
+    errors.rate = "Rate cannot be greater than MRP.";
+  }
+
+  const quantityError = integerAtLeast(form.quantity, "Quantity", 0);
+  if (quantityError) errors.quantity = quantityError;
 
   return errors;
 }
