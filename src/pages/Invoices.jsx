@@ -145,6 +145,15 @@ function QuickStatusBadge({ item, onStatusChange }) {
   const handleSelectStatus = async (newStatus) => {
     setOpen(false);
     if (newStatus === status) return;
+    // Cancelling deletes the bill on the server and releases its number.
+    if (
+      newStatus === "cancelled" &&
+      !confirm(
+        `Cancel ${item.invoiceNumber}? The bill is removed and its number goes back to the series.`,
+      )
+    ) {
+      return;
+    }
     setUpdating(true);
     try {
       await onStatusChange(item._id, newStatus);
@@ -619,6 +628,16 @@ export default function Invoices() {
     setFormErrors(errors);
     if (hasErrors(errors)) {
       toast.error("Please fix the highlighted fields.");
+      return;
+    }
+
+    // Cancelling deletes the bill on the server and releases its number.
+    if (
+      form.status === "cancelled" &&
+      !confirm(
+        "Cancelling removes this bill and puts its number back in the series. Continue?",
+      )
+    ) {
       return;
     }
 
