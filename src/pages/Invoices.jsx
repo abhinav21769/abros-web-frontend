@@ -11,8 +11,8 @@ import {
   Printer,
   Share2,
   ChevronDown,
-  Search,
 } from "lucide-react";
+import SearchSelect from "../components/SearchSelect";
 import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
@@ -250,169 +250,44 @@ function QuickStatusBadge({ item, onStatusChange }) {
 }
 
 export function CustomerSearchSelect({ customers, value, onChange, hasError }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  // The row Enter picks. Always starts at the top match, so typing a name and
-  // hitting Enter fills the customer without touching the mouse.
-  const [activeIndex, setActiveIndex] = useState(0);
-  const dropdownRef = useRef(null);
-  const optionsRef = useRef(null);
-
-  const selectedCustomer = useMemo(
-    () => customers.find((c) => c._id === value),
-    [customers, value]
+  const options = useMemo(
+    () =>
+      customers.map((c) => ({
+        value: c._id,
+        label: c.name,
+        sublabel: [c.contact, c.gstin ? `GST: ${c.gstin}` : null]
+          .filter(Boolean)
+          .join(" • "),
+        searchText: [c.name, c.contact, c.gstin].filter(Boolean).join(" "),
+        triggerLabel: `${c.name}${c.contact ? ` (${c.contact})` : ""}`,
+      })),
+    [customers],
   );
 
-  const filteredCustomers = useMemo(() => {
-    if (!search.trim()) return customers;
-    const term = search.toLowerCase().trim();
-    return customers.filter(
-      (c) =>
-        c.name.toLowerCase().includes(term) ||
-        (c.contact && c.contact.toLowerCase().includes(term)) ||
-        (c.gstin && c.gstin.toLowerCase().includes(term))
-    );
-  }, [customers, search]);
-
-  useEffect(() => {
-    if (!isOpen) return undefined;
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
-  // A filter that shrinks the list can leave activeIndex past the end, so the
-  // highlight is clamped here rather than chased with an effect.
-  const activeOption = filteredCustomers.length
-    ? Math.min(activeIndex, filteredCustomers.length - 1)
-    : -1;
-
-  useEffect(() => {
-    if (!isOpen || activeOption < 0) return;
-    optionsRef.current?.children[activeOption]?.scrollIntoView({
-      block: "nearest",
-    });
-  }, [isOpen, activeOption]);
-
-  const selectCustomer = (customer) => {
-    onChange({ target: { name: "customer", value: customer._id } });
-    setIsOpen(false);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      if (!filteredCustomers.length) return;
-      const step = e.key === "ArrowDown" ? 1 : -1;
-      setActiveIndex(
-        (activeOption + step + filteredCustomers.length) %
-          filteredCustomers.length,
-      );
-      return;
-    }
-
-    if (e.key === "Enter") {
-      // The dropdown sits inside the invoice form; Enter picks a customer here
-      // instead of submitting it.
-      e.preventDefault();
-      if (activeOption >= 0) selectCustomer(filteredCustomers[activeOption]);
-      return;
-    }
-
-    if (e.key === "Escape") {
-      e.preventDefault();
-      setIsOpen(false);
-    }
-  };
-
-  const openDropdown = (open) => {
-    setIsOpen(open);
-    if (open) setActiveIndex(0);
-  };
-
   return (
-    <div ref={dropdownRef} className="searchable-select-wrap">
-      <button
-        type="button"
-        className={`searchable-select-trigger ${hasError ? "has-error" : ""}`}
-        onClick={() => openDropdown(!isOpen)}
-      >
-        <span>
-          {selectedCustomer
-            ? `${selectedCustomer.name}${selectedCustomer.contact ? ` (${selectedCustomer.contact})` : ""}`
-            : "Select customer..."}
-        </span>
-        <Search size={15} className="searchable-select-icon" />
-      </button>
-
-      {isOpen && (
-        <div className="searchable-select-dropdown">
-          <div className="searchable-select-search-box">
-            <Search size={14} className="searchable-select-search-icon" />
-            <input
-              type="text"
-              autoFocus
-              placeholder="Search customer by name, phone, GSTIN..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setActiveIndex(0);
-              }}
-              onKeyDown={handleKeyDown}
-              className="searchable-select-input"
-            />
-            {search && (
-              <button
-                type="button"
-                className="searchable-select-clear"
-                onClick={() => {
-                  setSearch("");
-                  setActiveIndex(0);
-                }}
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-
-          <div className="searchable-select-options" ref={optionsRef}>
-            {filteredCustomers.length === 0 ? (
-              <div className="searchable-select-no-results">
-                No customer found matching "{search}"
-              </div>
-            ) : (
-              filteredCustomers.map((c, index) => (
-                <button
-                  key={c._id}
-                  type="button"
-                  className={`searchable-select-option ${c._id === value ? "is-selected" : ""} ${index === activeOption ? "is-active" : ""}`}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => selectCustomer(c)}
-                >
-                  <div className="searchable-select-option-main">{c.name}</div>
-                  {(c.contact || c.gstin) && (
-                    <div className="searchable-select-option-sub">
-                      {[c.contact, c.gstin ? `GST: ${c.gstin}` : null]
-                        .filter(Boolean)
-                        .join(" • ")}
-                    </div>
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <SearchSelect
+      options={options}
+      value={value}
+      onSelect={(id) => onChange({ target: { name: "customer", value: id } })}
+      placeholder="Select customer..."
+      searchPlaceholder="Search customer by name, phone, GSTIN..."
+      noResultsLabel="No customer found matching"
+      hasError={hasError}
+    />
   );
 }
 
 function paymentTypeLabel(paymentType) {
   return paymentType === "cash" ? "Cash" : "Credit";
+}
+
+// The last field Tab visits on a line item. The remove button trails it in the
+// DOM but is not a field, and the read-only Rate box is out of the tab order.
+function lastFieldOfLine(row) {
+  const fields = row.querySelectorAll(
+    '.searchable-select-trigger, select, input:not([tabindex="-1"])',
+  );
+  return fields[fields.length - 1] || null;
 }
 
 function getMedicineDefaultRate(med, invoiceType = "sale") {
@@ -455,6 +330,7 @@ export default function Invoices() {
   const [saving, setSaving] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState(null);
   const [newMedicineLineIndex, setNewMedicineLineIndex] = useState(null);
+  const itemsRef = useRef(null);
   const [invoiceType, setInvoiceType] = useState(tabFromUrl);
   const isPurchase = invoiceType === "purchase";
 
@@ -645,6 +521,34 @@ export default function Invoices() {
     }));
   };
 
+  // Billing runs line after line, so finishing a line opens the next one: Enter
+  // anywhere in it, or Tab off its last field, adds an empty row below and puts
+  // the cursor on its medicine picker. Only from the last line, and only once a
+  // medicine is on it, so neither key can pile up blank rows.
+  const handleItemKeyDown = (e, index) => {
+    const isLastItem = index === form.items.length - 1;
+    const isEnter = e.key === "Enter";
+    const isTab = e.key === "Tab" && !e.shiftKey;
+    if (!isEnter && !isTab) return;
+    if (!isLastItem || !form.items[index].medicine) return;
+    // Tab still walks the rest of the line; only the last field opens the row.
+    if (isTab && e.target !== lastFieldOfLine(e.currentTarget)) return;
+
+    // Enter inside this form would otherwise submit the invoice.
+    e.preventDefault();
+    addItem();
+
+    // The row does not exist until React commits the new items array.
+    requestAnimationFrame(() => {
+      const rows = itemsRef.current?.querySelectorAll(
+        ".invoice-single-line-item",
+      );
+      rows?.[rows.length - 1]
+        ?.querySelector(".searchable-select-trigger")
+        ?.focus();
+    });
+  };
+
   const removeItem = (index) => {
     setForm((prev) => ({
       ...prev,
@@ -654,6 +558,26 @@ export default function Invoices() {
 
   const formInvoiceType = editing?.invoiceType || invoiceType;
   const formIsPurchase = formInvoiceType === "purchase";
+
+  // Carries the same text the old <select> showed, split into the row's main
+  // line and its sub-line.
+  const medicineOptions = useMemo(
+    () =>
+      medicines.map((m) => ({
+        value: m._id,
+        label: m.name,
+        sublabel: [
+          `${formIsPurchase ? "Rate" : "PTR"} ₹${getMedicineDefaultRate(m, formInvoiceType)}`,
+          formIsPurchase ? null : `Stock ${m.quantity ?? 0}`,
+        ]
+          .filter(Boolean)
+          .join(" • "),
+        searchText: [m.name, m.manufacturer, m.hsn, m.batchNumber]
+          .filter(Boolean)
+          .join(" "),
+      })),
+    [medicines, formIsPurchase, formInvoiceType],
+  );
 
   // A sale is billed at PTR; a purchase at the supplier's rate. Either way the
   // chosen price is what lands in the line's `rate` field on the payload.
@@ -1157,7 +1081,7 @@ export default function Invoices() {
               </button>
             </div>
 
-            <div className="invoice-items">
+            <div className="invoice-items" ref={itemsRef}>
               {!formIsPurchase && medicines.length === 0 ? (
                 <div className="empty-state">
                   No active medicines in inventory. Add medicines first.
@@ -1169,6 +1093,7 @@ export default function Invoices() {
                     className={`invoice-single-line-item${
                       formIsPurchase ? "" : " invoice-single-line-item--sale"
                     }`}
+                    onKeyDown={(e) => handleItemKeyDown(e, index)}
                   >
                     <div className="input-group input-group-medicine">
                       <div className="input-group-header-row">
@@ -1201,36 +1126,23 @@ export default function Invoices() {
                         ) : null}
                       </div>
                       <div className="medicine-select-row">
-                        <select
+                        <SearchSelect
+                          options={medicineOptions}
                           value={item.medicine}
-                          onChange={(e) =>
-                            handleItemChange(
-                              index,
-                              "medicine",
-                              e.target.value,
-                            )
+                          onSelect={(id) =>
+                            handleItemChange(index, "medicine", id)
                           }
-                          className={fieldClass(
-                            formErrors,
-                            `items.${index}.medicine`,
-                          )}
-                        >
-                          <option value="">
-                            {medicines.length === 0
+                          placeholder={
+                            medicines.length === 0
                               ? "No medicines — add new"
-                              : "Select medicine"}
-                          </option>
-                          {medicines.map((m) => (
-                            <option key={m._id} value={m._id}>
-                              {m.name} (
-                              {formIsPurchase ? "Rate" : "PTR"} ₹
-                              {getMedicineDefaultRate(m, formInvoiceType)})
-                              {!formIsPurchase
-                                ? ` — Stock ${m.quantity ?? 0}`
-                                : ""}
-                            </option>
-                          ))}
-                        </select>
+                              : "Select medicine"
+                          }
+                          searchPlaceholder="Search medicine by name, manufacturer, HSN..."
+                          noResultsLabel="No medicine found matching"
+                          hasError={Boolean(
+                            itemFieldError(index, "medicine"),
+                          )}
+                        />
                         {formIsPurchase ? (
                           <button
                             type="button"

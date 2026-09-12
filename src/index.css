@@ -1674,8 +1674,16 @@ select option {
   align-items: center;
 }
 
-.medicine-select-row select {
+.medicine-select-row select,
+.medicine-select-row .searchable-select-wrap {
   flex: 1;
+  min-width: 0;
+}
+
+/* The medicine column is the narrowest place this dropdown is used; let it
+   spill past the trigger so names and the search box stay readable. */
+.medicine-select-row .searchable-select-dropdown {
+  min-width: 320px;
 }
 
 .medicine-add-btn {
@@ -2086,8 +2094,21 @@ select option {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* Medicine lines are narrow, so a long name ellipsises instead of stretching
+   the column or wrapping the row. */
+.searchable-select-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .searchable-select-trigger.has-error {
   border-color: var(--danger) !important;
+}
+
+.searchable-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .searchable-select-trigger:hover {
