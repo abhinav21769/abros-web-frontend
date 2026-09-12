@@ -26,3 +26,6 @@ Object.defineProperty(window, 'matchMedia', {
 
 // Mock scrollTo
 window.scrollTo = vi.fn();
+
+// jsdom has no layout, so it ships no scrollIntoView
+Element.prototype.scrollIntoView = vi.fn();

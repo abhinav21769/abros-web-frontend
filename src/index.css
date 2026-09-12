@@ -2201,6 +2201,13 @@ select option {
   color: var(--primary);
 }
 
+/* The row Enter will pick - the top match until the arrow keys move it. */
+.searchable-select-option.is-active {
+  background-color: var(--surface-elevated);
+  color: var(--primary);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
 .searchable-select-option-main {
   font-weight: 600;
 }

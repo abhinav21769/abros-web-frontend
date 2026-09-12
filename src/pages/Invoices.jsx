@@ -249,10 +249,14 @@ function QuickStatusBadge({ item, onStatusChange }) {
   );
 }
 
-function CustomerSearchSelect({ customers, value, onChange, hasError }) {
+export function CustomerSearchSelect({ customers, value, onChange, hasError }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
+  // The row Enter picks. Always starts at the top match, so typing a name and
+  // hitting Enter fills the customer without touching the mouse.
+  const [activeIndex, setActiveIndex] = useState(0);
   const dropdownRef = useRef(null);
+  const optionsRef = useRef(null);
 
   const selectedCustomer = useMemo(
     () => customers.find((c) => c._id === value),
@@ -281,12 +285,61 @@ function CustomerSearchSelect({ customers, value, onChange, hasError }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
+  // A filter that shrinks the list can leave activeIndex past the end, so the
+  // highlight is clamped here rather than chased with an effect.
+  const activeOption = filteredCustomers.length
+    ? Math.min(activeIndex, filteredCustomers.length - 1)
+    : -1;
+
+  useEffect(() => {
+    if (!isOpen || activeOption < 0) return;
+    optionsRef.current?.children[activeOption]?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [isOpen, activeOption]);
+
+  const selectCustomer = (customer) => {
+    onChange({ target: { name: "customer", value: customer._id } });
+    setIsOpen(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!filteredCustomers.length) return;
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setActiveIndex(
+        (activeOption + step + filteredCustomers.length) %
+          filteredCustomers.length,
+      );
+      return;
+    }
+
+    if (e.key === "Enter") {
+      // The dropdown sits inside the invoice form; Enter picks a customer here
+      // instead of submitting it.
+      e.preventDefault();
+      if (activeOption >= 0) selectCustomer(filteredCustomers[activeOption]);
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setIsOpen(false);
+    }
+  };
+
+  const openDropdown = (open) => {
+    setIsOpen(open);
+    if (open) setActiveIndex(0);
+  };
+
   return (
     <div ref={dropdownRef} className="searchable-select-wrap">
       <button
         type="button"
         className={`searchable-select-trigger ${hasError ? "has-error" : ""}`}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => openDropdown(!isOpen)}
       >
         <span>
           {selectedCustomer
@@ -305,35 +358,40 @@ function CustomerSearchSelect({ customers, value, onChange, hasError }) {
               autoFocus
               placeholder="Search customer by name, phone, GSTIN..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setActiveIndex(0);
+              }}
+              onKeyDown={handleKeyDown}
               className="searchable-select-input"
             />
             {search && (
               <button
                 type="button"
                 className="searchable-select-clear"
-                onClick={() => setSearch("")}
+                onClick={() => {
+                  setSearch("");
+                  setActiveIndex(0);
+                }}
               >
                 <X size={12} />
               </button>
             )}
           </div>
 
-          <div className="searchable-select-options">
+          <div className="searchable-select-options" ref={optionsRef}>
             {filteredCustomers.length === 0 ? (
               <div className="searchable-select-no-results">
                 No customer found matching "{search}"
               </div>
             ) : (
-              filteredCustomers.map((c) => (
+              filteredCustomers.map((c, index) => (
                 <button
                   key={c._id}
                   type="button"
-                  className={`searchable-select-option ${c._id === value ? "is-selected" : ""}`}
-                  onClick={() => {
-                    onChange({ target: { name: "customer", value: c._id } });
-                    setIsOpen(false);
-                  }}
+                  className={`searchable-select-option ${c._id === value ? "is-selected" : ""} ${index === activeOption ? "is-active" : ""}`}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => selectCustomer(c)}
                 >
                   <div className="searchable-select-option-main">{c.name}</div>
                   {(c.contact || c.gstin) && (
