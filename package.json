@@ -10,7 +10,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npm run build && firebase deploy --only hosting",
+    "deploy": "npm run build && firebase deploy --only hosting:prod",
+    "deploy:dev": "npm run build && firebase deploy --only hosting:dev",
     "test": "vitest run",
     "test:watch": "vitest"
   },

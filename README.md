@@ -28,7 +28,9 @@ The app requires login. Users are created via the backend CLI or admin API — t
 npm run deploy
 ```
 
-Or push to `main` — GitHub Actions deploys to Firebase Hosting.
+Or push to a deploy branch — GitHub Actions deploys `prod` to https://abros-healthcare.web.app and `dev` to https://abros-healthcare-dev.web.app.
+
+Local one-off deploys: `npm run deploy` (prod site) or `npm run deploy:dev` (dev site).
 
 **Live URL:** https://abros-healthcare.web.app
 

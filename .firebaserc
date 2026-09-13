@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "abros-healthcare"
+  },
+  "targets": {
+    "abros-healthcare": {
+      "hosting": {
+        "prod": [
+          "abros-healthcare"
+        ],
+        "dev": [
+          "abros-healthcare-dev"
+        ]
+      }
+    }
   }
 }
