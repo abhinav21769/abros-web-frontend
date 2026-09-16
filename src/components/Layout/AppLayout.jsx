@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Menu, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon, AlertTriangle } from "lucide-react";
 import Sidebar from "./Sidebar";
 import BrandLogo from "../BrandLogo";
 import { useTheme } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
+import { APP_NAME } from "../../config/branding";
 
 export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { toggleTheme, isDark } = useTheme();
+  const { company, needsOnboarding, isAdmin } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -37,7 +40,7 @@ export default function AppLayout() {
           <div className="mobile-header-logo-glow">
             <BrandLogo size={28} />
           </div>
-          <span className="mobile-header-title">Abros Healthcare</span>
+          <span className="mobile-header-title">{company?.name || APP_NAME}</span>
         </div>
 
         <button
@@ -64,6 +67,15 @@ export default function AppLayout() {
       <Sidebar isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main className="main-content">
+        {/* An admin is redirected into the wizard instead; a viewer cannot fill
+            it in, so they just get told why the branding looks unfinished. */}
+        {needsOnboarding && !isAdmin ? (
+          <div className="setup-banner" role="status">
+            <AlertTriangle size={16} />
+            Company setup is not finished yet. Ask an admin to complete it so
+            your invoices carry the right details.
+          </div>
+        ) : null}
         <Outlet />
       </main>
     </div>

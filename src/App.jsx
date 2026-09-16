@@ -14,6 +14,8 @@ import CustomerProductSales from "./pages/CustomerProductSales";
 import Customers from "./pages/Customers";
 import GstReturns from "./pages/GstReturns";
 import Ledger from "./pages/Ledger"; // L-1 FIX: Import previously missing Ledger page
+import Onboarding from "./pages/Onboarding";
+import Settings from "./pages/Settings";
 
 export default function App() {
   return (
@@ -24,6 +26,9 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute />}>
+                {/* Outside AppLayout: the wizard runs before there is a company
+                    to brand the shell with. */}
+                <Route path="onboarding" element={<Onboarding />} />
                 <Route element={<AppLayout />}>
                   <Route index element={<Dashboard />} />
                   <Route path="invoices" element={<Invoices />} />
@@ -41,6 +46,7 @@ export default function App() {
                   <Route path="customers" element={<Customers />} />
                   <Route path="gst-returns" element={<GstReturns />} />
                   <Route path="ledger" element={<Ledger />} /> {/* L-1 FIX: Register Ledger route */}
+                  <Route path="settings" element={<Settings />} />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

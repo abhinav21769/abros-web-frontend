@@ -358,6 +358,93 @@ export function validatePurchaseForm(form) {
   return errors;
 }
 
+const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const UPI_VPA_REGEX = /^[\w.-]{2,256}@[a-zA-Z]{2,64}$/;
+const PREFIX_REGEX = /^[A-Za-z0-9]{1,6}$/;
+
+// The company profile that brands the app and prints on every invoice. Only the
+// name is required - a shop can fill the rest in later from Settings - but
+// anything given has to be well formed, because these values end up on a tax
+// document.
+export function validateCompanyForm(form) {
+  const errors = {};
+
+  const nameError = required(form.name, "Company name");
+  if (nameError) errors.name = nameError;
+  else if (form.name.trim().length < 2) {
+    errors.name = "Company name must be at least 2 characters.";
+  }
+
+  const phoneError = optionalPattern(
+    form.phone,
+    PHONE_REGEX,
+    "Phone must be a valid 10-digit mobile number.",
+  );
+  if (phoneError) errors.phone = phoneError;
+
+  const gstinError = optionalPattern(
+    form.gstin,
+    GSTIN_REGEX,
+    "GSTIN must be a valid 15-character GST number.",
+  );
+  if (gstinError) errors.gstin = gstinError;
+
+  if (form.pincode?.trim() && !/^\d{6}$/.test(form.pincode.trim())) {
+    errors.pincode = "Pincode must be 6 digits.";
+  }
+
+  if (form.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    errors.email = "Enter a valid email address.";
+  }
+
+  const ifscError = optionalPattern(
+    form.bank?.ifsc,
+    IFSC_REGEX,
+    "IFSC must be 11 characters, e.g. PUNB0120310.",
+  );
+  if (ifscError) errors["bank.ifsc"] = ifscError;
+
+  if (form.bank?.accountNumber?.trim() && !/^\d{6,20}$/.test(form.bank.accountNumber.trim())) {
+    errors["bank.accountNumber"] = "Account number must be 6 to 20 digits.";
+  }
+
+  const upiError = optionalPattern(
+    form.upiVpa,
+    UPI_VPA_REGEX,
+    "UPI ID must look like name@bank.",
+  );
+  if (upiError) errors.upiVpa = upiError;
+
+  ["invoicePrefix", "purchasePrefix"].forEach((field) => {
+    const value = form[field];
+    if (value?.trim() && !PREFIX_REGEX.test(value.trim())) {
+      errors[field] = "Prefix must be 1 to 6 letters or digits.";
+    }
+  });
+
+  return errors;
+}
+
+// New users are created by an admin, so the rules are the same ones the backend
+// applies to the User model.
+export function validateNewUserForm(form) {
+  const errors = {};
+
+  const usernameError = required(form.username, "Username");
+  if (usernameError) errors.username = usernameError;
+  else if (form.username.trim().length < 3) {
+    errors.username = "Username must be at least 3 characters.";
+  }
+
+  const passwordError = required(form.password, "Password");
+  if (passwordError) errors.password = passwordError;
+  else if (form.password.length < 6) {
+    errors.password = "Password must be at least 6 characters.";
+  }
+
+  return errors;
+}
+
 export function fieldClass(errors, field) {
   return errors[field] ? "has-error" : "";
 }

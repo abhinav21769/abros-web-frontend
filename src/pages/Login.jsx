@@ -5,6 +5,7 @@ import BrandLogo from "../components/BrandLogo";
 import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import { useAuth } from "../context/AuthContext";
+import { APP_NAME } from "../config/branding";
 import { useToast } from "../context/ToastContext";
 import {
   clearFieldError,
@@ -53,9 +54,11 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-brand">
-          <BrandLogo size={48} />
+          {/* Nobody is signed in yet, so this is the product's mark, not a
+              tenant's. */}
+          <BrandLogo size={48} src={null} name={APP_NAME} />
           <div>
-            <h1>Abros Healthcare</h1>
+            <h1>{APP_NAME}</h1>
           </div>
         </div>
 

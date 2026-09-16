@@ -19,6 +19,19 @@ vi.mock('../../api/client', () => ({
   medicinesApi: { listAll: vi.fn() },
 }));
 
+// These tests are about keyboard behaviour in the billing form, so the signed-in
+// company is stubbed rather than driven through a real login.
+vi.mock('../../context/AuthContext', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({
+    user: { id: 'u1', username: 'tester', role: 'admin' },
+    company: { id: 'c1', name: 'Test Pharma' },
+    isAdmin: true,
+    isViewer: false,
+    needsOnboarding: false,
+  }),
+}));
+
 const medicines = [
   {
     _id: 'm1',

@@ -7,6 +7,7 @@ import {
   downloadInvoicePdf,
   generateInvoicePdfBlob,
 } from "../utils/invoiceExport";
+import { useAuth } from "../context/AuthContext";
 import {
   createPdfObjectUrl,
   isMobileBrowser,
@@ -15,6 +16,8 @@ import {
 } from "../utils/pdfMobile";
 
 export default function InvoicePreviewModal({ invoice, onClose }) {
+  // The preview has to show the same letterhead the printed bill will carry.
+  const { company } = useAuth();
   const [previewUrl, setPreviewUrl] = useState("");
   const [pdfBlob, setPdfBlob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +59,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
         const invoiceData = res.data;
         setFullInvoice(invoiceData);
 
-        const blob = await generateInvoicePdfBlob(invoiceData);
+        const blob = await generateInvoicePdfBlob(invoiceData, company);
         if (cancelled) return;
 
         const url = createPdfObjectUrl(blob);
@@ -75,13 +78,13 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [invoice?._id]);
+  }, [invoice?._id, company]);
 
   const handleDownload = async () => {
     try {
       const data =
         fullInvoice || (await invoicesApi.get(invoice._id)).data;
-      await downloadInvoicePdf(data);
+      await downloadInvoicePdf(data, company);
     } catch (err) {
       setError(err.message);
     }

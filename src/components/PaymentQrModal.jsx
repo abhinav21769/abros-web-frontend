@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Modal from "./ui/Modal";
 import LottieLoader from "./ui/LottieLoader";
 import BrandLogo from "./BrandLogo";
-import { PAYMENT_CONFIG, isPaymentConfigured } from "../config/payment";
+import { useAuth } from "../context/AuthContext";
 import {
   generateUpiQrDataUrl,
   getInvoicePaymentNote,
@@ -16,25 +16,29 @@ function formatCurrency(value) {
 }
 
 export default function PaymentQrModal({ invoice, onClose }) {
+  const { company } = useAuth();
+  const upiId = company?.upiVpa || "";
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!invoice || !isPaymentConfigured()) {
-      setError("UPI payment is not configured.");
+    if (!invoice || !upiId) {
+      setError("No UPI ID on your company profile. Add one in Settings.");
       setLoading(false);
       return;
     }
 
     generateUpiQrDataUrl({
+      upiId,
+      payeeName: company?.name,
       amount: invoice.total,
       note: getInvoicePaymentNote(invoice),
     })
       .then(setQrDataUrl)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [invoice]);
+  }, [invoice, upiId, company?.name]);
 
   if (!invoice) return null;
 
@@ -59,7 +63,7 @@ export default function PaymentQrModal({ invoice, onClose }) {
               Scan with PhonePe, Google Pay, Paytm, or any UPI app
             </p>
             <p className="payment-qr-upi">
-              UPI ID: <strong>{PAYMENT_CONFIG.upiId}</strong>
+              UPI ID: <strong>{upiId}</strong>
             </p>
           </>
         )}

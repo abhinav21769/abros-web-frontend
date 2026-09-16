@@ -22,6 +22,7 @@ import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import AddMedicineModal from "../components/AddMedicineModal";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { useAuth } from "../context/AuthContext";
 import {
   downloadInvoicePdf,
   printInvoicePdf,
@@ -313,6 +314,9 @@ function getBatchPtr(batch, med) {
 
 export default function Invoices() {
   const toast = useToast();
+  // company brands the generated PDFs; isAdmin decides whether the billing
+  // controls are offered at all.
+  const { company, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = resolveInvoiceType(searchParams.get("type"));
   const [items, setItems] = useState([]);
@@ -708,7 +712,7 @@ export default function Invoices() {
   const handlePrint = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
-      const result = await printInvoicePdf(res.data);
+      const result = await printInvoicePdf(res.data, company);
       if (result?.method === "open") {
         toast.success("PDF opened — use your browser menu to print.");
       }
@@ -720,7 +724,7 @@ export default function Invoices() {
   const handleShare = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
-      const result = await shareInvoicePdf(res.data);
+      const result = await shareInvoicePdf(res.data, company);
       if (result.method === "share") {
         toast.success("Invoice shared.");
       } else if (result.method === "share-text") {
@@ -740,7 +744,7 @@ export default function Invoices() {
   const handleDownloadPdf = async (invoice) => {
     try {
       const res = await invoicesApi.get(invoice._id);
-      await downloadInvoicePdf(res.data);
+      await downloadInvoicePdf(res.data, company);
       toast.success("Invoice downloaded as PDF.");
     } catch (err) {
       toast.error(err.message);
@@ -757,10 +761,12 @@ export default function Invoices() {
             : "Create and manage sales invoices for customers"
         }
         action={
-          <button className="btn btn-primary" onClick={openCreate}>
-            <Plus size={16} />{" "}
-            {isPurchase ? "New Purchase Invoice" : "New Sale Invoice"}
-          </button>
+          isAdmin ? (
+            <button className="btn btn-primary" onClick={openCreate}>
+              <Plus size={16} />{" "}
+              {isPurchase ? "New Purchase Invoice" : "New Sale Invoice"}
+            </button>
+          ) : null
         }
       />
 
@@ -873,20 +879,24 @@ export default function Invoices() {
                           >
                             <Download size={15} />
                           </button>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => openEdit(item)}
-                            aria-label="Edit"
-                          >
-                            <Pencil size={15} />
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleDelete(item._id)}
-                            aria-label="Delete"
-                          >
-                            <Trash2 size={15} color="var(--danger)" />
-                          </button>
+                          {isAdmin ? (
+                            <>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => openEdit(item)}
+                                aria-label="Edit"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => handleDelete(item._id)}
+                                aria-label="Delete"
+                              >
+                                <Trash2 size={15} color="var(--danger)" />
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </td>
                     </tr>

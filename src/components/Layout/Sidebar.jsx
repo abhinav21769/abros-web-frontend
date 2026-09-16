@@ -8,6 +8,7 @@ import {
   Truck,
   Building2,
   Landmark,
+  Settings,
   X,
   LogOut,
   Sun,
@@ -16,6 +17,7 @@ import {
 import BrandLogo from "../BrandLogo";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { APP_NAME } from "../../config/branding";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: Activity, end: true },
@@ -31,10 +33,12 @@ const navItems = [
   },
   { to: "/customers", label: "Customers", icon: Building2 },
   { to: "/gst-returns", label: "GST Returns", icon: Landmark },
+  // Company profile and user management - admins only.
+  { to: "/settings", label: "Settings", icon: Settings, adminOnly: true },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {
-  const { user, logout } = useAuth();
+  const { user, company, isAdmin, logout } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,7 +62,7 @@ export default function Sidebar({ isOpen = false, onClose }) {
         <div className="sidebar-logo">
           <BrandLogo size={36} />
           <div className="sidebar-logo-text">
-            <h1>Abros Healthcare</h1>
+            <h1>{company?.name || APP_NAME}</h1>
           </div>
         </div>
         <button
@@ -72,32 +76,34 @@ export default function Sidebar({ isOpen = false, onClose }) {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map(({ to, label, icon: Icon, end, invoiceTab }) => {
-          const linkTo =
-            invoiceTab === "purchase"
-              ? { pathname: to, search: "?type=purchase" }
-              : invoiceTab === "sale"
-                ? { pathname: to, search: "" }
-                : to;
-          const isActive = invoiceTab
-            ? location.pathname === to && activeInvoiceTab === invoiceTab
-            : undefined;
+        {navItems
+          .filter(({ adminOnly }) => !adminOnly || isAdmin)
+          .map(({ to, label, icon: Icon, end, invoiceTab }) => {
+            const linkTo =
+              invoiceTab === "purchase"
+                ? { pathname: to, search: "?type=purchase" }
+                : invoiceTab === "sale"
+                  ? { pathname: to, search: "" }
+                  : to;
+            const isActive = invoiceTab
+              ? location.pathname === to && activeInvoiceTab === invoiceTab
+              : undefined;
 
-          return (
-            <NavLink
-              key={label}
-              to={linkTo}
-              end={end}
-              className={({ isActive: navActive }) =>
-                `nav-link${(invoiceTab ? isActive : navActive) ? " active" : ""}`
-              }
-              onClick={onClose}
-            >
-              <Icon size={18} strokeWidth={2} />
-              <span>{label}</span>
-            </NavLink>
-          );
-        })}
+            return (
+              <NavLink
+                key={label}
+                to={linkTo}
+                end={end}
+                className={({ isActive: navActive }) =>
+                  `nav-link${(invoiceTab ? isActive : navActive) ? " active" : ""}`
+                }
+                onClick={onClose}
+              >
+                <Icon size={18} strokeWidth={2} />
+                <span>{label}</span>
+              </NavLink>
+            );
+          })}
       </nav>
 
       <div className="sidebar-footer">
@@ -121,7 +127,7 @@ export default function Sidebar({ isOpen = false, onClose }) {
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             <div style={{ lineHeight: 1.2 }}>{userName}</div>
             <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 400 }}>
-              Administrator
+              {isAdmin ? "Administrator" : "View only"}
             </span>
           </div>
         </div>
