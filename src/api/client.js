@@ -106,7 +106,7 @@ export const medicinesApi = {
   update: (id, body) =>
     request(`/api/medicines/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   remove: (id) => request(`/api/medicines/${id}`, { method: "DELETE" }),
-  stats: (days = 30) => request(`/api/medicines/stats?days=${days}`),
+  stats: (days = 180) => request(`/api/medicines/stats?days=${days}`),
   listAll: (params = {}) => listAllPages(medicinesApi.list, params),
 };
 
@@ -144,7 +144,7 @@ export const invoicesApi = {
 };
 
 export const dashboardApi = {
-  stats: (days = 30) => request(`/api/dashboard/stats?days=${days}`),
+  stats: (days = 180) => request(`/api/dashboard/stats?days=${days}`),
   productSales: (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return request(`/api/dashboard/product-sales${query ? `?${query}` : ""}`);

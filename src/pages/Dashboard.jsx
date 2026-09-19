@@ -103,7 +103,7 @@ export default function Dashboard() {
 
   const fetchData = useCallback(() => {
     dashboardApi
-      .stats(30)
+      .stats(180)
       .then((res) => {
         setInventory({ data: res.data.inventory });
         setCustomers({ data: res.data.customers });
@@ -227,7 +227,7 @@ export default function Dashboard() {
     {
       label: "Low Stock Alert",
       value: invStats.lowStockCount,
-      sub: "Medicines below 10 units",
+      sub: `Medicines below ${invStats.lowStockThreshold ?? 200} units`,
       icon: <ShieldAlert size={18} />,
       iconBg: "rgba(37, 99, 235, 0.12)",
       iconColor: "#2563eb",
