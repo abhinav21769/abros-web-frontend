@@ -1,15 +1,19 @@
 import QRCode from "qrcode";
+import { PAYMENT_CONFIG } from "../config/payment";
 
-// The payee is always the signed-in company: a shared env-configured UPI id
-// would collect one tenant's money into another's account.
-export function buildUpiPaymentUri({ upiId, payeeName = "", amount, note } = {}) {
+export function buildUpiPaymentUri({
+  upiId = PAYMENT_CONFIG.upiId,
+  payeeName = PAYMENT_CONFIG.payeeName,
+  amount,
+  note,
+} = {}) {
   if (!upiId?.trim()) {
-    throw new Error("No UPI ID on your company profile. Add one in Settings.");
+    throw new Error("UPI ID is not configured.");
   }
 
   const params = new URLSearchParams();
   params.set("pa", upiId.trim());
-  params.set("pn", String(payeeName || "").trim());
+  params.set("pn", payeeName.trim());
   params.set("cu", "INR");
 
   if (amount != null && Number(amount) > 0) {

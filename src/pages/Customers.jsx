@@ -8,7 +8,6 @@ import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import { customersApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
-import { useAuth } from "../context/AuthContext";
 import {
   clearFieldError,
   fieldClass,
@@ -26,9 +25,6 @@ const emptyForm = {
 
 export default function Customers() {
   const toast = useToast();
-  // A viewer can browse customers but never change one; the API refuses their
-  // writes either way, so the controls are simply not offered.
-  const { isAdmin } = useAuth();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
@@ -140,11 +136,9 @@ export default function Customers() {
             <Link to="/customer-product-sales" className="btn btn-secondary">
               <TrendingUp size={16} /> Sales Analysis
             </Link>
-            {isAdmin ? (
-              <button className="btn btn-primary" onClick={openCreate}>
-                <Plus size={16} /> Add Customer
-              </button>
-            ) : null}
+            <button className="btn btn-primary" onClick={openCreate}>
+              <Plus size={16} /> Add Customer
+            </button>
           </div>
         }
       />
@@ -179,7 +173,7 @@ export default function Customers() {
                     <th>Contact</th>
                     <th>GSTIN</th>
                     <th>DL No.</th>
-                    {isAdmin ? <th></th> : null}
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -190,26 +184,24 @@ export default function Customers() {
                       <td>{item.contact || "—"}</td>
                       <td>{item.gstin || "—"}</td>
                       <td>{item.dlNo || "—"}</td>
-                      {isAdmin ? (
-                        <td>
-                          <div className="actions-cell">
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => openEdit(item)}
-                              aria-label="Edit"
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => handleDelete(item._id)}
-                              aria-label="Delete"
-                            >
-                              <Trash2 size={15} color="var(--danger)" />
-                            </button>
-                          </div>
-                        </td>
-                      ) : null}
+                      <td>
+                        <div className="actions-cell">
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => openEdit(item)}
+                            aria-label="Edit"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleDelete(item._id)}
+                            aria-label="Delete"
+                          >
+                            <Trash2 size={15} color="var(--danger)" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

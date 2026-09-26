@@ -14,7 +14,7 @@
 ## Environment
 
 - Copy `.env.example` to `.env` for local development
-- Required vars: `VITE_API_URL`; optional: `VITE_APP_NAME` (sign-in page branding), `VITE_SENTRY_DSN`. Company name, logo and UPI id come from the signed-in company, not env.
+- Required vars: `VITE_API_URL`, `VITE_UPI_ID`, `VITE_UPI_PAYEE_NAME`, `VITE_SENTRY_DSN`
 - Production API URL is `https://abros-healthcare.onrender.com` (set in CI)
 
 ## CI/CD

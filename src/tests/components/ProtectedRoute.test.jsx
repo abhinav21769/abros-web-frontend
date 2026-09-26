@@ -45,58 +45,10 @@ describe('ProtectedRoute', () => {
     expect(screen.queryByText('Dashboard Content')).not.toBeInTheDocument();
   });
 
-  it('sends an admin whose company setup is unfinished to the wizard', () => {
-    vi.spyOn(AuthContext, 'useAuth').mockReturnValue({
-      isAuthenticated: true,
-      loading: false,
-      needsOnboarding: true,
-      isAdmin: true,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route path="/onboarding" element={<div>Setup Wizard</div>} />
-            <Route path="/dashboard" element={<div>Dashboard Content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    );
-
-    expect(screen.getByText('Setup Wizard')).toBeInTheDocument();
-    expect(screen.queryByText('Dashboard Content')).not.toBeInTheDocument();
-  });
-
-  it('lets a viewer in even while company setup is unfinished', () => {
-    // A viewer cannot complete the wizard, so holding them on it would trap them.
-    vi.spyOn(AuthContext, 'useAuth').mockReturnValue({
-      isAuthenticated: true,
-      loading: false,
-      needsOnboarding: true,
-      isAdmin: false,
-    });
-
-    render(
-      <MemoryRouter initialEntries={['/dashboard']}>
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route path="/onboarding" element={<div>Setup Wizard</div>} />
-            <Route path="/dashboard" element={<div>Dashboard Content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    );
-
-    expect(screen.getByText('Dashboard Content')).toBeInTheDocument();
-  });
-
   it('renders child routes when authenticated', () => {
     vi.spyOn(AuthContext, 'useAuth').mockReturnValue({
       isAuthenticated: true,
       loading: false,
-      needsOnboarding: false,
-      isAdmin: true,
     });
 
     render(

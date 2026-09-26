@@ -20,7 +20,6 @@ import LottieLoader from "../components/ui/LottieLoader";
 import { FadeIn } from "../components/ui/fade-in";
 import { dashboardApi, invoicesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
-import { useAuth } from "../context/AuthContext";
 import { formatDateTime } from "../utils/dateUtils";
 
 function formatCurrency(value) {
@@ -96,8 +95,6 @@ function StatCard({
 
 export default function Dashboard() {
   const toast = useToast();
-  // The quick actions lead straight into forms a viewer cannot submit.
-  const { isAdmin } = useAuth();
   const [inventory, setInventory] = useState(null);
   const [customers, setCustomers] = useState(null);
   const [invoices, setInvoices] = useState(null);
@@ -250,16 +247,14 @@ export default function Dashboard() {
       <PageHeader
         title="Operations Dashboard"
         action={
-          isAdmin ? (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link to="/inventory" className="btn btn-primary">
-                <PlusCircle size={16} /> Add Stock
-              </Link>
-              <Link to="/invoices" className="btn btn-secondary">
-                <FileText size={16} /> New Sale
-              </Link>
-            </div>
-          ) : null
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Link to="/inventory" className="btn btn-primary">
+              <PlusCircle size={16} /> Add Stock
+            </Link>
+            <Link to="/invoices" className="btn btn-secondary">
+              <FileText size={16} /> New Sale
+            </Link>
+          </div>
         }
       />
 

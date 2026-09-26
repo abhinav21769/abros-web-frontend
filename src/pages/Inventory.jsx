@@ -7,7 +7,6 @@ import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import { medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
-import { useAuth } from "../context/AuthContext";
 import { GST_RATE_OPTIONS } from "../utils/invoiceTax";
 import { toDateInputValue } from "../utils/dateUtils";
 import {
@@ -84,8 +83,6 @@ function getExpiryBadge(expiryDate) {
 
 export default function Inventory() {
   const toast = useToast();
-  // Viewers get the same stock figures and none of the controls that change them.
-  const { isAdmin } = useAuth();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
@@ -405,11 +402,9 @@ export default function Inventory() {
         title="Inventory"
         subtitle="Manage medicine stock, expiry dates, and pricing"
         action={
-          isAdmin ? (
-            <button className="btn btn-primary" onClick={openCreate}>
-              <Plus size={16} /> Add Medicine
-            </button>
-          ) : null
+          <button className="btn btn-primary" onClick={openCreate}>
+            <Plus size={16} /> Add Medicine
+          </button>
         }
       />
 
@@ -524,26 +519,24 @@ export default function Inventory() {
                           <td>{ptrRange ? formatRange(ptrRange) : formatCurrency(item.ptr)}</td>
                           <td>{getExpiryBadge(item.expiryDate)}</td>
                           <td>
-                            {isAdmin ? (
-                              <div className="actions-cell">
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => openEdit(item)}
-                                  aria-label="Edit medicine"
-                                  title="Edit Medicine"
-                                >
-                                  <Pencil size={15} />
-                                </button>
-                                <button
-                                  className="btn btn-ghost btn-sm"
-                                  onClick={() => handleDelete(item._id)}
-                                  aria-label="Delete medicine"
-                                  title="Delete Medicine"
-                                >
-                                  <Trash2 size={15} color="var(--danger)" />
-                                </button>
-                              </div>
-                            ) : null}
+                            <div className="actions-cell">
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => openEdit(item)}
+                                aria-label="Edit medicine"
+                                title="Edit Medicine"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => handleDelete(item._id)}
+                                aria-label="Delete medicine"
+                                title="Delete Medicine"
+                              >
+                                <Trash2 size={15} color="var(--danger)" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                         {isExpanded && (
@@ -553,16 +546,14 @@ export default function Inventory() {
                                 <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-main)" }}>
                                   Active Batches ({batchCount})
                                 </span>
-                                {isAdmin ? (
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => openAddBatch(item)}
-                                    style={{ fontSize: "0.75rem", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}
-                                  >
-                                    <Plus size={13} /> Add Batch
-                                  </button>
-                                ) : null}
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => openAddBatch(item)}
+                                  style={{ fontSize: "0.75rem", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}
+                                >
+                                  <Plus size={13} /> Add Batch
+                                </button>
                               </div>
                               <table style={{ width: "100%", fontSize: "0.8rem" }}>
                                 <thead>
@@ -592,30 +583,28 @@ export default function Inventory() {
                                         <td style={{ fontWeight: 700 }}>{b.quantity}</td>
                                         <td>{getExpiryBadge(b.expiryDate)}</td>
                                         <td>
-                                          {isAdmin ? (
-                                            <div className="actions-cell" style={{ justifyContent: "flex-end" }}>
-                                              <button
-                                                type="button"
-                                                className="btn btn-ghost btn-sm"
-                                                onClick={() => openEditBatch(item, b, idx)}
-                                                aria-label="Edit batch"
-                                                title="Edit batch"
-                                                disabled={isDeletingThis}
-                                              >
-                                                <Pencil size={14} />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                className="btn btn-ghost btn-sm"
-                                                onClick={() => handleDeleteBatch(item, idx)}
-                                                aria-label="Delete batch"
-                                                title="Delete batch"
-                                                disabled={isDeletingThis}
-                                              >
-                                                <Trash2 size={14} color="var(--danger)" />
-                                              </button>
-                                            </div>
-                                          ) : null}
+                                          <div className="actions-cell" style={{ justifyContent: "flex-end" }}>
+                                            <button
+                                              type="button"
+                                              className="btn btn-ghost btn-sm"
+                                              onClick={() => openEditBatch(item, b, idx)}
+                                              aria-label="Edit batch"
+                                              title="Edit batch"
+                                              disabled={isDeletingThis}
+                                            >
+                                              <Pencil size={14} />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="btn btn-ghost btn-sm"
+                                              onClick={() => handleDeleteBatch(item, idx)}
+                                              aria-label="Delete batch"
+                                              title="Delete batch"
+                                              disabled={isDeletingThis}
+                                            >
+                                              <Trash2 size={14} color="var(--danger)" />
+                                            </button>
+                                          </div>
                                         </td>
                                       </tr>
                                     );

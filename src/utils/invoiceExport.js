@@ -11,42 +11,31 @@ import {
   getLineItemGstRate,
   getLineTotalWithGst,
 } from "./invoiceTax";
+import { isPaymentConfigured } from "../config/payment";
 import { generateUpiQrDataUrl, getInvoicePaymentNote } from "./upiPayment";
 
-const DEFAULT_TERMS = ["1. Goods once sold will not be taken back or exchanged."];
-
-// The letterhead comes from the signed-in company, not a constant: every tenant
-// prints their own name, GSTIN, licences and bank details. Kept numerically and
-// visually identical to the backend's utils/fullInvoicePdf.js.
-function buildSeller(company) {
-  const source = company || {};
-  const name = String(source.name || "").toUpperCase();
-  const addressLine = [source.addressLine, source.city, source.state, source.pincode]
-    .map((part) => String(part || "").trim())
-    .filter(Boolean)
-    .join(", ");
-
-  return {
-    name,
-    addressLine,
-    phoneDisplay: source.phone || "",
-    gstin: source.gstin || "",
-    dlNumbers: (source.dlNumbers || []).filter(Boolean),
-    bankName: source.bank?.name || "",
-    ifsc: source.bank?.ifsc || "",
-    account: source.bank?.accountNumber || "",
-    forLabel: name ? `For ${name}` : "",
-    upiVpa: source.upiVpa || "",
-    logo: /^data:image\/(png|jpe?g)/i.test(source.logo || "") ? source.logo : null,
-    terms: (source.terms || []).filter(Boolean).length
-      ? source.terms.filter(Boolean)
-      : DEFAULT_TERMS,
-  };
-}
+const SELLER = {
+  name: "ABROS HEALTHCARE",
+  addressLine: "Shop-2, Shivpuri Colony, Sultanpur, Ambala City.",
+  pincode: "134003",
+  phone: "8295566445",
+  phoneDisplay: "82955-66445",
+  gstin: "06AFUPJ3372H1Z5",
+  dlNumbers: ["WLF20B2026HR000446", "WLF21B2026HR000442"],
+  bankName: "Punjab National Bank, Prem Nagar",
+  ifsc: "PUNB0120310",
+  account: "10401132000162",
+  forLabel: "For ABROS HEALTHCARE",
+};
 
 function getPaymentTypeLabel(invoice) {
   return invoice?.paymentType === "cash" ? "CASH" : "CREDIT";
 }
+
+const TERMS = [
+  "1. All disputes Subject to Ambala Jurisdiction only.",
+  "2. Goods once sold will not taken back or Exchanged.",
+];
 
 function formatAmount(value) {
   return Number(value || 0).toFixed(2);
@@ -309,7 +298,6 @@ function drawInvoiceCopy(doc, invoice, options) {
     copyLabel,
     maxEndY,
     qrDataUrl,
-    seller,
   } = options;
   const customer = invoice.customer || {};
   const isPurchase = invoice.invoiceType === "purchase";
@@ -335,15 +323,11 @@ function drawInvoiceCopy(doc, invoice, options) {
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
-  if (seller.gstin) {
-    doc.text(`GSTIN: ${seller.gstin}`, margin, y + 3);
-  }
+  doc.text(`GSTIN: ${SELLER.gstin}`, margin, y + 3);
   const dlLabel = "D.L NO: - ";
-  if (seller.dlNumbers[0]) {
-    doc.text(`${dlLabel}${seller.dlNumbers[0]}`, margin, y + 7);
-  }
-  if (seller.dlNumbers[1]) {
-    doc.text(seller.dlNumbers[1], margin + doc.getTextWidth(dlLabel), y + 11);
+  doc.text(`${dlLabel}${SELLER.dlNumbers[0] || ""}`, margin, y + 7);
+  if (SELLER.dlNumbers[1]) {
+    doc.text(SELLER.dlNumbers[1], margin + doc.getTextWidth(dlLabel), y + 11);
   }
 
   doc.setFont("helvetica", "normal");
@@ -360,31 +344,16 @@ function drawInvoiceCopy(doc, invoice, options) {
   doc.setFont("helvetica", "bold");
   doc.text(getPaymentTypeLabel(invoice), metaX + 18, y + 10);
 
-  y += seller.dlNumbers[1] ? 22 : 18;
-
-  if (seller.logo) {
-    try {
-      const logoSize = 12;
-      doc.addImage(seller.logo, margin, y - 9, logoSize, logoSize);
-    } catch {
-      // A logo jsPDF cannot decode must never stop the bill printing.
-    }
-  }
-
+  y += SELLER.dlNumbers[1] ? 22 : 18;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
-  doc.text(seller.name, pageWidth / 2, y, { align: "center" });
+  doc.text(SELLER.name, pageWidth / 2, y, { align: "center" });
 
   y += 5;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text(
-    [
-      seller.addressLine,
-      seller.phoneDisplay ? `Phone No.: ${seller.phoneDisplay}` : "",
-    ]
-      .filter(Boolean)
-      .join(" "),
+    `${SELLER.addressLine} Phone No.: ${SELLER.phoneDisplay}`,
     pageWidth / 2,
     y,
     { align: "center" },
@@ -545,9 +514,9 @@ function drawInvoiceCopy(doc, invoice, options) {
     doc.text("Bank Details:", margin + 2, blockY + 3);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.8);
-    doc.text(seller.bankName, margin + 2, blockY + 6.5);
-    doc.text(`ACCOUNT : ${seller.account}`, margin + 2, blockY + 9.5);
-    doc.text(`IFSC : ${seller.ifsc}`, margin + 2, blockY + 12.5, {
+    doc.text(SELLER.bankName, margin + 2, blockY + 6.5);
+    doc.text(`ACCOUNT : ${SELLER.account}`, margin + 2, blockY + 9.5);
+    doc.text(`IFSC : ${SELLER.ifsc}`, margin + 2, blockY + 12.5, {
       maxWidth: contentWidth * 0.42,
     });
 
@@ -571,7 +540,7 @@ function drawInvoiceCopy(doc, invoice, options) {
     doc.text("Terms & Conditions", margin + 2, signatureTop + 2);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6);
-    seller.terms.forEach((term, index) => {
+    TERMS.forEach((term, index) => {
       doc.text(term, margin + 2, signatureTop + 5 + index * 3.2, {
         maxWidth: contentWidth * 0.52,
       });
@@ -580,7 +549,7 @@ function drawInvoiceCopy(doc, invoice, options) {
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
-  doc.text(seller.forLabel, pageWidth - margin, signatureTop + 2, {
+  doc.text(SELLER.forLabel, pageWidth - margin, signatureTop + 2, {
     align: "right",
   });
   doc.setFont("helvetica", "normal");
@@ -591,8 +560,7 @@ function drawInvoiceCopy(doc, invoice, options) {
   return Math.max(blockY, signatureTop + 8);
 }
 
-export async function renderInvoicePdf(invoice, company) {
-  const seller = buildSeller(company);
+export async function renderInvoicePdf(invoice) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -604,12 +572,9 @@ export async function renderInvoicePdf(invoice, company) {
   const isPurchase = invoice.invoiceType === "purchase";
   let qrDataUrl = null;
 
-  // No UPI id on the company profile means no QR - never another tenant's.
-  if (!isPurchase && seller.upiVpa && invoice.status !== "cancelled") {
+  if (!isPurchase && isPaymentConfigured() && invoice.status !== "cancelled") {
     try {
       qrDataUrl = await generateUpiQrDataUrl({
-        upiId: seller.upiVpa,
-        payeeName: seller.name,
         amount: tax.grandTotal,
         note: getInvoicePaymentNote(invoice),
       });
@@ -626,7 +591,6 @@ export async function renderInvoicePdf(invoice, company) {
     copyLabel: "CUSTOMER COPY",
     maxEndY: cutY - copyGap,
     qrDataUrl,
-    seller,
   });
 
   drawCutLine(doc, pageWidth, cutY, margin);
@@ -639,25 +603,24 @@ export async function renderInvoicePdf(invoice, company) {
     copyLabel: "OFFICE COPY",
     maxEndY: pageHeight - margin,
     qrDataUrl,
-    seller,
   });
 
   return doc;
 }
 
-export async function generateInvoicePdfBlob(invoice, company) {
-  const doc = await renderInvoicePdf(invoice, company);
+export async function generateInvoicePdfBlob(invoice) {
+  const doc = await renderInvoicePdf(invoice);
   return ensurePdfBlob(doc.output("blob"));
 }
 
-export async function downloadInvoicePdf(invoice, company) {
-  const blob = await generateInvoicePdfBlob(invoice, company);
+export async function downloadInvoicePdf(invoice) {
+  const blob = await generateInvoicePdfBlob(invoice);
   const filename = `${sanitizeFilename(invoice.invoiceNumber)}.pdf`;
   savePdfBlob(blob, filename);
 }
 
-export async function printInvoicePdf(invoice, company) {
-  const blob = await generateInvoicePdfBlob(invoice, company);
+export async function printInvoicePdf(invoice) {
+  const blob = await generateInvoicePdfBlob(invoice);
 
   if (isMobileBrowser()) {
     openPdfBlobInNewTab(blob);
@@ -722,13 +685,13 @@ function buildInvoiceShareText(invoice) {
   return `Invoice ${invoice.invoiceNumber} for ${partyName} — ${total}`;
 }
 
-export async function shareInvoicePdf(invoice, company) {
+export async function shareInvoicePdf(invoice) {
   const filename = `${sanitizeFilename(invoice.invoiceNumber)}.pdf`;
   const text = buildInvoiceShareText(invoice);
   const mobile = isMobileBrowser();
 
   try {
-    const blob = await generateInvoicePdfBlob(invoice, company);
+    const blob = await generateInvoicePdfBlob(invoice);
     const file = new File([blob], filename, { type: "application/pdf" });
 
     if (navigator.share) {
@@ -781,7 +744,7 @@ export async function shareInvoicePdf(invoice, company) {
     }
     if (mobile) {
       try {
-        const fallbackBlob = await generateInvoicePdfBlob(invoice, company);
+        const fallbackBlob = await generateInvoicePdfBlob(invoice);
         openPdfBlobInNewTab(fallbackBlob);
         return { method: "open" };
       } catch (e) {

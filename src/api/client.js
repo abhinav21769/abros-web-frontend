@@ -76,29 +76,6 @@ export const authApi = {
   me: () => request("/api/auth/me"),
 };
 
-// The signed-in user's own company. Everyone may read it; only an admin may
-// write, and the backend enforces that regardless of what the UI shows.
-export const companyApi = {
-  get: () => request("/api/company"),
-  update: (body) =>
-    request("/api/company", { method: "PUT", body: JSON.stringify(body) }),
-  completeOnboarding: (body) =>
-    request("/api/company/onboarding", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-};
-
-// Admin-only: the users of the caller's own company.
-export const usersApi = {
-  list: () => request("/api/users"),
-  create: (body) =>
-    request("/api/users", { method: "POST", body: JSON.stringify(body) }),
-  update: (id, body) =>
-    request(`/api/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  remove: (id) => request(`/api/users/${id}`, { method: "DELETE" }),
-};
-
 // M-6 FIX: pickers used to load one fixed page (100 customers, 500 medicines)
 // and show nothing beyond it, so past those counts a record simply stopped
 // appearing - and the usual response is to create a duplicate. This walks every
