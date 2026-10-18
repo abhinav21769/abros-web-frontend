@@ -7,6 +7,7 @@ import {
   customersApi,
   invoicesApi,
   purchasesApi,
+  customerServicesApi,
 } from '../../api/client';
 
 describe('API Client', () => {
@@ -54,5 +55,41 @@ describe('API Client', () => {
     await expect(medicinesApi.create({ name: 'Duplicate' })).rejects.toThrow(
       'Medicine name already exists'
     );
+  });
+
+  it('keeps the Authorization header when a call adds its own headers', async () => {
+    setAuthToken('token-abc-123');
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true, data: { items: [] } }),
+    });
+    globalThis.fetch = mockFetch;
+
+    await customerServicesApi.list('section-xyz', { search: 'gift' });
+
+    const [url, options] = mockFetch.mock.calls[0];
+    expect(url).toContain('/api/customer-services?search=gift');
+    expect(options.headers.Authorization).toBe('Bearer token-abc-123');
+    expect(options.headers['X-Section-Token']).toBe('section-xyz');
+    expect(options.headers['Content-Type']).toBe('application/json');
+  });
+
+  it('exposes the backend error code on thrown errors', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        success: false,
+        error: { code: 'SECTION_LOCKED', message: 'Customer Services is locked.' },
+      }),
+    });
+
+    await expect(customerServicesApi.list('expired')).rejects.toMatchObject({
+      message: 'Customer Services is locked.',
+      code: 'SECTION_LOCKED',
+      status: 403,
+    });
+    expect(window.location.pathname).not.toBe('/login');
   });
 });

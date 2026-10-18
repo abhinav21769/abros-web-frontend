@@ -358,6 +358,25 @@ export function validatePurchaseForm(form) {
   return errors;
 }
 
+export function validateCustomerServiceForm(form) {
+  const errors = {};
+
+  const nameError = required(form.customerName, "Customer name");
+  if (nameError) errors.customerName = nameError;
+
+  const amountError = positiveNumber(form.amount, "Amount", { allowZero: true });
+  if (amountError) errors.amount = amountError;
+
+  const dateError = requiredDate(form.date, "Date");
+  if (dateError) errors.date = dateError;
+
+  if (String(form.remarks ?? "").length > 1000) {
+    errors.remarks = "Remarks must be 1000 characters or fewer.";
+  }
+
+  return errors;
+}
+
 export function fieldClass(errors, field) {
   return errors[field] ? "has-error" : "";
 }

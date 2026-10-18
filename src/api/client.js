@@ -32,16 +32,19 @@ export function clearAuthToken() {
 
 async function request(path, options = {}) {
   const token = getAuthToken();
+  // Spread the rest first so a caller's own `headers` adds to these instead of
+  // replacing them (and silently dropping the Authorization header).
+  const { headers, ...rest } = options;
   let res;
 
   try {
     res = await fetch(`${API_BASE}${path}`, {
+      ...rest,
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
+        ...headers,
       },
-      ...options,
     });
   } catch (err) {
     throw new Error(
@@ -61,7 +64,10 @@ async function request(path, options = {}) {
   if (!res.ok || data.success === false) {
     const errorMessage =
       data.error?.message || data.message || data.errorMessage || "Request failed";
-    throw new Error(errorMessage);
+    const error = new Error(errorMessage);
+    error.code = data.error?.code;
+    error.status = res.status;
+    throw error;
   }
 
   return data;
@@ -187,4 +193,46 @@ export const ledgerApi = {
     const query = new URLSearchParams(params).toString();
     return request(`/api/ledger?${query}`);
   },
+};
+
+// Customer Services needs a second, section-only password. `unlock` trades it
+// for a short-lived section token that every other call sends back; callers
+// keep that token in memory only, so leaving the page locks it again.
+const sectionHeaders = (sectionToken) => ({ "X-Section-Token": sectionToken || "" });
+
+export const SECTION_LOCKED = "SECTION_LOCKED";
+
+export const customerServicesApi = {
+  unlock: (password) =>
+    request("/api/customer-services/unlock", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
+  list: (sectionToken, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/customer-services?${query}`, {
+      headers: sectionHeaders(sectionToken),
+    });
+  },
+  customerNames: (sectionToken) =>
+    request("/api/customer-services/customers", {
+      headers: sectionHeaders(sectionToken),
+    }),
+  create: (sectionToken, body) =>
+    request("/api/customer-services", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: sectionHeaders(sectionToken),
+    }),
+  update: (sectionToken, id, body) =>
+    request(`/api/customer-services/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+      headers: sectionHeaders(sectionToken),
+    }),
+  remove: (sectionToken, id) =>
+    request(`/api/customer-services/${id}`, {
+      method: "DELETE",
+      headers: sectionHeaders(sectionToken),
+    }),
 };
