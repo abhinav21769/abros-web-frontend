@@ -1470,6 +1470,85 @@ select option {
   font-size: 0.95rem;
 }
 
+/* Customer Services: password lock + ledger toolbar */
+.section-lock {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 160px);
+  padding: 24px 0;
+}
+
+.section-lock-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px;
+  gap: 16px;
+  text-align: center;
+}
+
+.section-lock-card .input-group {
+  text-align: left;
+}
+
+.section-lock-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--primary);
+  background: rgba(45, 212, 191, 0.12);
+}
+
+.section-lock-card h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.section-lock-card p {
+  margin: -8px 0 4px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.customer-services-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.customer-services-filters select {
+  width: 240px;
+  max-width: 100%;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  font-size: 0.875rem;
+}
+
+.customer-services-total {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.customer-services-total strong {
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.customer-services-remarks {
+  max-width: 420px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* GST Module Styling */
 .gst-filters-card {
   margin-bottom: 24px;

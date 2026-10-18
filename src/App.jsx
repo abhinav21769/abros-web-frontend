@@ -14,6 +14,7 @@ import CustomerProductSales from "./pages/CustomerProductSales";
 import Customers from "./pages/Customers";
 import GstReturns from "./pages/GstReturns";
 import Ledger from "./pages/Ledger"; // L-1 FIX: Import previously missing Ledger page
+import CustomerServices from "./pages/CustomerServices";
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
                   />
                   <Route path="customers" element={<Customers />} />
                   <Route path="gst-returns" element={<GstReturns />} />
+                  <Route path="customer-services" element={<CustomerServices />} />
                   <Route path="ledger" element={<Ledger />} /> {/* L-1 FIX: Register Ledger route */}
                 </Route>
               </Route>
