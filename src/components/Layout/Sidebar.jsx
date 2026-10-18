@@ -8,6 +8,7 @@ import {
   Truck,
   Building2,
   Landmark,
+  Gift,
   X,
   LogOut,
   Sun,
@@ -31,6 +32,7 @@ const navItems = [
   },
   { to: "/customers", label: "Customers", icon: Building2 },
   { to: "/gst-returns", label: "GST Returns", icon: Landmark },
+  { to: "/customer-services", label: "Customer Services", icon: Gift },
 ];
 
 export default function Sidebar({ isOpen = false, onClose }) {
