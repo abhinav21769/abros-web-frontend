@@ -7,7 +7,11 @@ import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import { medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
-import { GST_RATE_OPTIONS } from "../utils/invoiceTax";
+import {
+  getGstRateOptions,
+  isLegacyGstRate,
+  normalizeGstRate,
+} from "../utils/invoiceTax";
 import { toDateInputValue } from "../utils/dateUtils";
 import {
   clearFieldError,
@@ -355,7 +359,7 @@ export default function Inventory() {
           batchNumber: form.batchNumber || undefined,
           manufacturer: form.manufacturer || undefined,
           hsn: form.hsn || undefined,
-          gstRate: Number(form.gstRate) || 5,
+          gstRate: normalizeGstRate(form.gstRate),
           description: form.description || undefined,
           ...(editing && editing.batches && editing.batches.length === 1
             ? {
@@ -378,7 +382,7 @@ export default function Inventory() {
           packagingType: form.packagingType,
           manufacturer: form.manufacturer || undefined,
           hsn: form.hsn || undefined,
-          gstRate: Number(form.gstRate) || 5,
+          gstRate: normalizeGstRate(form.gstRate),
           description: form.description || undefined,
         };
 
@@ -696,9 +700,9 @@ export default function Inventory() {
                 onChange={handleChange}
                 required
               >
-                {GST_RATE_OPTIONS.map((rate) => (
+                {getGstRateOptions(form.gstRate, editing?.gstRate).map((rate) => (
                   <option key={rate} value={rate}>
-                    {rate}%
+                    {rate}%{isLegacyGstRate(rate) ? " (old slab)" : ""}
                   </option>
                 ))}
               </select>
