@@ -35,7 +35,12 @@ import {
   toInvoiceDatePayload,
 } from "../utils/dateUtils";
 
-import { calculateInvoiceTax, GST_RATE_OPTIONS } from "../utils/invoiceTax";
+import {
+  calculateInvoiceTax,
+  getGstRateOptions,
+  isLegacyGstRate,
+  normalizeGstRate,
+} from "../utils/invoiceTax";
 import { getAvailableStockForLine } from "../utils/invoiceStock";
 import {
   clearFieldError,
@@ -593,7 +598,7 @@ export default function Invoices() {
           quantity: Number(item.quantity) || 0,
           rate: getLinePrice(item),
           discount: Number(item.discount) || 0,
-          gstRate: Number(item.gstRate) || 5,
+          gstRate: normalizeGstRate(item.gstRate),
         })),
       ),
     [form.items, getLinePrice],
@@ -638,7 +643,7 @@ export default function Invoices() {
         mrp: item.mrp != null && item.mrp !== "" ? Number(item.mrp) : undefined,
         hsn: item.hsn || undefined,
         discount: Number(item.discount) || 0,
-        gstRate: Number(item.gstRate) || 5,
+        gstRate: normalizeGstRate(item.gstRate),
         quantity: Number(item.quantity),
         free: Number(item.free) || 0,
         rate: getLinePrice(item),
@@ -1253,9 +1258,13 @@ export default function Invoices() {
                           handleItemChange(index, "gstRate", e.target.value)
                         }
                       >
-                        {GST_RATE_OPTIONS.map((rate) => (
+                        {getGstRateOptions(
+                          item.gstRate,
+                          medicines.find((m) => m._id === item.medicine)?.gstRate,
+                          editing?.items?.find((i) => i._id === item._key)?.gstRate,
+                        ).map((rate) => (
                           <option key={rate} value={rate}>
-                            {rate}%
+                            {rate}%{isLegacyGstRate(rate) ? " (old slab)" : ""}
                           </option>
                         ))}
                       </select>

@@ -3,7 +3,7 @@ import Modal from "./ui/Modal";
 import FieldError from "./ui/FieldError";
 import { medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
-import { GST_RATE_OPTIONS } from "../utils/invoiceTax";
+import { GST_RATE_OPTIONS, normalizeGstRate } from "../utils/invoiceTax";
 import {
   clearFieldError,
   fieldClass,
@@ -71,7 +71,7 @@ export default function AddMedicineModal({ onClose, onCreated }) {
       batchNumber: form.batchNumber.trim() || undefined,
       manufacturer: form.manufacturer.trim() || undefined,
       hsn: form.hsn.trim() || undefined,
-      gstRate: Number(form.gstRate) || 5,
+      gstRate: normalizeGstRate(form.gstRate),
     };
 
     try {
