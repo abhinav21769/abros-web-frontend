@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState, Fragment } from "react";
-import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronRight,
+  Search,
+} from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
+import { FadeIn } from "../components/ui/fade-in";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
 import FieldError from "../components/ui/FieldError";
@@ -8,7 +15,16 @@ import LottieLoader from "../components/ui/LottieLoader";
 import { medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { GST_RATE_OPTIONS } from "../utils/invoiceTax";
-import { toDateInputValue } from "../utils/dateUtils";
+import { formatCalendarDate, toDateInputValue } from "../utils/dateUtils";
+import { formatNumber } from "../utils/customerSales";
+import {
+  batchOverview,
+  batchRange,
+  expiryStatus,
+  medicineExpiry,
+  stockLevel,
+  stockShare,
+} from "../utils/inventoryView";
 import {
   clearFieldError,
   fieldClass,
@@ -39,15 +55,6 @@ function calcPtr(mrp) {
   return Math.round(value * (1 - PTR_DISCOUNT) * 100) / 100;
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function formatCurrency(value) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -55,30 +62,118 @@ function formatCurrency(value) {
   }).format(Number(value) || 0);
 }
 
-// null when every batch agrees (nothing to range over) - the caller then
-// falls back to displaying the medicine's single mirrored value.
-function batchRange(batches, field) {
-  if (!batches || batches.length < 2) return null;
-  const values = batches.map((b) => Number(b[field]) || 0);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  return min === max ? null : { min, max };
-}
-
 function formatRange(range) {
   return `${formatCurrency(range.min)} – ${formatCurrency(range.max)}`;
 }
 
-function getExpiryBadge(expiryDate) {
-  if (!expiryDate) return <span className="badge badge-neutral">Active</span>;
-  const today = new Date();
-  const expiry = new Date(expiryDate);
-  const days = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+function BatchPanel({ item, batches, now, deletingBatchKey, onAdd, onEdit, onDelete }) {
+  const overview = batchOverview(batches, now);
 
-  if (days < 0) return <span className="badge badge-danger">Expired</span>;
-  if (days <= 30)
-    return <span className="badge badge-warning">{days}d left</span>;
-  return <span className="badge badge-success">Active</span>;
+  return (
+    <div className="inv-batches" id={`batches-${item._id}`}>
+      <div className="inv-batches-head">
+        <div className="inv-batches-summary">
+          <strong>
+            {overview.count} batches · {formatNumber(overview.totalUnits)} units
+          </strong>
+          {overview.nearestStatus && (
+            <span>
+              Nearest expiry {formatCalendarDate(overview.nearestDate)}
+              <span className={`inv-chip inv-chip-${overview.nearestStatus.tone}`}>
+                {overview.nearestStatus.label}
+              </span>
+            </span>
+          )}
+        </div>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => onAdd(item)}>
+          <Plus size={13} /> Add batch
+        </button>
+      </div>
+
+      <div className="inv-batches-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Batch</th>
+              <th>Expiry</th>
+              <th>Stock</th>
+              <th className="num">MRP</th>
+              <th className="num">Rate</th>
+              <th className="num">PTR</th>
+              <th aria-label="Actions" />
+            </tr>
+          </thead>
+          <tbody>
+            {batches.map((batch, idx) => {
+              const isDeleting = deletingBatchKey === `${item._id}:${batch.batchNumber}`;
+              const status = expiryStatus(batch.expiryDate, now);
+              const isEmpty = !(Number(batch.quantity) > 0);
+              const share = stockShare(batch.quantity, overview.totalUnits);
+
+              return (
+                <tr key={batch._id || idx} className={isEmpty ? "is-empty" : undefined}>
+                  <td>
+                    <span className="inv-mono inv-strong">{batch.batchNumber || "—"}</span>
+                    {idx === overview.nextIndex && (
+                      <span
+                        className="inv-chip inv-chip-info"
+                        title="Sales without a chosen batch draw from the earliest-expiring batch with stock first (FEFO)."
+                      >
+                        Sells first
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="inv-date">{formatCalendarDate(batch.expiryDate) || "—"}</div>
+                    <span className={`inv-chip inv-chip-${status.tone}`}>{status.label}</span>
+                  </td>
+                  <td>
+                    <div className="inv-stock-cell">
+                      <span className="inv-strong">{formatNumber(batch.quantity)}</span>
+                      {isEmpty ? (
+                        <span className="inv-chip inv-chip-neutral">Empty</span>
+                      ) : (
+                        <span className="inv-stock-bar" title={`${share}% of this medicine's stock`}>
+                          <span style={{ width: `${share}%` }} />
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="num">{formatCurrency(batch.mrp)}</td>
+                  <td className="num">{formatCurrency(batch.rate)}</td>
+                  <td className="num">{formatCurrency(batch.ptr)}</td>
+                  <td>
+                    <div className="actions-cell">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => onEdit(item, batch, idx)}
+                        aria-label={`Edit batch ${batch.batchNumber || ""}`}
+                        title="Edit batch"
+                        disabled={isDeleting}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => onDelete(item, idx)}
+                        aria-label={`Delete batch ${batch.batchNumber || ""}`}
+                        title="Delete batch"
+                        disabled={isDeleting}
+                      >
+                        <Trash2 size={14} color="var(--danger)" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 export default function Inventory() {
@@ -88,6 +183,7 @@ export default function Inventory() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -272,6 +368,15 @@ export default function Inventory() {
     fetchItems();
   }, [fetchItems]);
 
+  // Wait for a pause in typing before searching instead of querying on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
@@ -396,55 +501,63 @@ export default function Inventory() {
     }
   };
 
+  const now = new Date();
+
   return (
     <>
       <PageHeader
         title="Inventory"
-        subtitle="Manage medicine stock, expiry dates, and pricing"
         action={
           <button className="btn btn-primary" onClick={openCreate}>
             <Plus size={16} /> Add Medicine
           </button>
         }
       />
+      <p className="inv-subtitle">
+        Medicine stock, batches, expiry dates and pricing. Quantities are totals across all batches.
+      </p>
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            type="text"
-            placeholder="Search by medicine name..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
+      <FadeIn className="card inv-card" delay={0.08}>
+        <div className="inv-toolbar">
+          <label className="inv-search">
+            <Search size={15} />
+            <input
+              type="search"
+              placeholder="Search by medicine name"
+              aria-label="Search medicines by name"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </label>
+          {pagination && (
+            <span className="inv-count">
+              {pagination.totalItems} {pagination.totalItems === 1 ? "medicine" : "medicines"}
+              {search ? ` matching "${search}"` : ""}
+            </span>
+          )}
         </div>
 
-        {loading ? (
+        {loading && items.length === 0 ? (
           <div className="loading">
             <LottieLoader message="Loading inventory..." compact />
           </div>
         ) : items.length === 0 ? (
-          <div className="empty-state">No medicines found</div>
+          <div className="empty-state">
+            {search ? `No medicines match "${search}".` : "No medicines in inventory yet."}
+          </div>
         ) : (
-          <>
+          <div className={`inv-body${loading ? " is-loading" : ""}`} aria-busy={loading}>
             <div className="table-wrap">
-              <table>
+              <table className="inv-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Packaging</th>
-                    <th>HSN</th>
+                    <th>Medicine</th>
                     <th>Batch</th>
                     <th>Expiry</th>
-                    <th>Qty</th>
-                    <th>MRP</th>
-                    <th>Rate</th>
-                    <th>GST</th>
-                    <th>PTR</th>
-                    <th>Status</th>
-                    <th></th>
+                    <th className="num">Stock</th>
+                    <th className="num">Pricing</th>
+                    <th>GST · HSN</th>
+                    <th aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -456,83 +569,92 @@ export default function Inventory() {
                     const mrpRange = batchRange(batchList, "mrp");
                     const rateRange = batchRange(batchList, "rate");
                     const ptrRange = batchRange(batchList, "ptr");
+                    const expiry = medicineExpiry(item, now);
+                    const level = stockLevel(item.quantity);
 
                     return (
                       <Fragment key={item._id}>
-                        <tr>
+                        <tr className={isExpanded ? "is-open" : undefined}>
                           <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div className="inv-medicine">
                               {hasMultipleBatches ? (
                                 <button
                                   type="button"
-                                  className="btn btn-ghost btn-sm"
+                                  className={`inv-chevron${isExpanded ? " is-open" : ""}`}
                                   onClick={() => toggleRow(item._id)}
-                                  style={{ padding: 2, minWidth: "auto" }}
-                                  title={isExpanded ? "Hide batch breakdown" : "Show batch breakdown"}
+                                  aria-expanded={isExpanded}
+                                  aria-controls={`batches-${item._id}`}
+                                  title={isExpanded ? "Hide batches" : "Show batches"}
                                 >
-                                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                  <ChevronRight size={16} />
                                 </button>
                               ) : (
-                                <span style={{ display: "inline-block", width: 16 }} aria-hidden="true" />
+                                <span className="inv-chevron-spacer" aria-hidden="true" />
                               )}
                               <div>
-                                <div style={{ fontWeight: 700, color: "var(--text-main)", fontSize: "0.9rem" }}>
-                                  {item.name}
+                                <div className="inv-name">{item.name}</div>
+                                <div className="inv-meta">
+                                  {[item.manufacturer, item.packagingType].filter(Boolean).join(" · ") || "—"}
                                 </div>
-                                {item.manufacturer && (
-                                  <div
-                                    style={{
-                                      fontSize: "0.75rem",
-                                      color: "var(--text-muted)",
-                                      marginTop: 2,
-                                    }}
-                                  >
-                                    {item.manufacturer}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </td>
-                          <td>{item.packagingType}</td>
-                          <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{item.hsn || "—"}</td>
-                          <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
+                          <td>
                             {hasMultipleBatches ? (
                               <button
                                 type="button"
-                                className="badge badge-neutral"
-                                style={{ cursor: "pointer", border: "none" }}
+                                className={`inv-batch-pill${isExpanded ? " is-open" : ""}`}
                                 onClick={() => toggleRow(item._id)}
+                                aria-expanded={isExpanded}
+                                aria-controls={`batches-${item._id}`}
                               >
                                 {batchCount} batches
+                                <ChevronRight size={13} />
                               </button>
                             ) : (
-                              item.batchNumber || "—"
+                              <span className="inv-mono">{item.batchNumber || "—"}</span>
                             )}
                           </td>
-                          <td title={hasMultipleBatches ? "Nearest expiry across all batches" : undefined}>
-                            {formatDate(item.expiryDate)}
+                          <td title={hasMultipleBatches ? "Nearest expiry across batches with stock" : undefined}>
+                            <div className="inv-date">{formatCalendarDate(expiry.date || item.expiryDate) || "—"}</div>
+                            <span className={`inv-chip inv-chip-${expiry.tone}`}>{expiry.label}</span>
                           </td>
-                          <td style={{ fontWeight: 600 }}>{item.quantity}</td>
-                          <td>{mrpRange ? formatRange(mrpRange) : formatCurrency(item.mrp)}</td>
-                          <td>{rateRange ? formatRange(rateRange) : formatCurrency(item.rate)}</td>
-                          <td>{item.gstRate ?? 5}%</td>
-                          <td>{ptrRange ? formatRange(ptrRange) : formatCurrency(item.ptr)}</td>
-                          <td>{getExpiryBadge(item.expiryDate)}</td>
+                          <td className="num">
+                            <div className="inv-qty">{formatNumber(item.quantity)}</div>
+                            {level !== "ok" && (
+                              <span className={`inv-chip inv-chip-${level === "out" ? "danger" : "warning"}`}>
+                                {level === "out" ? "Out of stock" : "Low stock"}
+                              </span>
+                            )}
+                          </td>
+                          <td className="num">
+                            <div className="inv-price">
+                              {mrpRange ? formatRange(mrpRange) : formatCurrency(item.mrp)}
+                            </div>
+                            <div className="inv-meta">
+                              Rate {rateRange ? formatRange(rateRange) : formatCurrency(item.rate)}
+                              {" · "}PTR {ptrRange ? formatRange(ptrRange) : formatCurrency(item.ptr)}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="inv-date">{item.gstRate ?? 5}%</div>
+                            <div className="inv-meta inv-mono">{item.hsn || "—"}</div>
+                          </td>
                           <td>
                             <div className="actions-cell">
                               <button
                                 className="btn btn-ghost btn-sm"
                                 onClick={() => openEdit(item)}
-                                aria-label="Edit medicine"
-                                title="Edit Medicine"
+                                aria-label={`Edit ${item.name}`}
+                                title="Edit medicine"
                               >
                                 <Pencil size={15} />
                               </button>
                               <button
                                 className="btn btn-ghost btn-sm"
                                 onClick={() => handleDelete(item._id)}
-                                aria-label="Delete medicine"
-                                title="Delete Medicine"
+                                aria-label={`Delete ${item.name}`}
+                                title="Delete medicine"
                               >
                                 <Trash2 size={15} color="var(--danger)" />
                               </button>
@@ -540,77 +662,17 @@ export default function Inventory() {
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr style={{ background: "var(--surface-elevated, #f8fafc)" }}>
-                            <td colSpan={12} style={{ padding: "12px 16px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                                <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-main)" }}>
-                                  Active Batches ({batchCount})
-                                </span>
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary btn-sm"
-                                  onClick={() => openAddBatch(item)}
-                                  style={{ fontSize: "0.75rem", padding: "4px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}
-                                >
-                                  <Plus size={13} /> Add Batch
-                                </button>
-                              </div>
-                              <table style={{ width: "100%", fontSize: "0.8rem" }}>
-                                <thead>
-                                  <tr style={{ background: "var(--bg-muted, #f1f5f9)" }}>
-                                    <th>Batch No.</th>
-                                    <th>Expiry Date</th>
-                                    <th>MRP</th>
-                                    <th>Rate</th>
-                                    <th>PTR</th>
-                                    <th>Stock Qty</th>
-                                    <th>Status</th>
-                                    <th style={{ textAlign: "right" }}>Actions</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {batchList.map((b, idx) => {
-                                    const isDeletingThis = deletingBatchKey === `${item._id}:${b.batchNumber}`;
-                                    return (
-                                      <tr key={b._id || idx}>
-                                        <td style={{ fontFamily: "monospace", fontWeight: 600 }}>
-                                          {b.batchNumber || "—"}
-                                        </td>
-                                        <td>{formatDate(b.expiryDate)}</td>
-                                        <td>{formatCurrency(b.mrp)}</td>
-                                        <td>{formatCurrency(b.rate)}</td>
-                                        <td>{formatCurrency(b.ptr)}</td>
-                                        <td style={{ fontWeight: 700 }}>{b.quantity}</td>
-                                        <td>{getExpiryBadge(b.expiryDate)}</td>
-                                        <td>
-                                          <div className="actions-cell" style={{ justifyContent: "flex-end" }}>
-                                            <button
-                                              type="button"
-                                              className="btn btn-ghost btn-sm"
-                                              onClick={() => openEditBatch(item, b, idx)}
-                                              aria-label="Edit batch"
-                                              title="Edit batch"
-                                              disabled={isDeletingThis}
-                                            >
-                                              <Pencil size={14} />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className="btn btn-ghost btn-sm"
-                                              onClick={() => handleDeleteBatch(item, idx)}
-                                              aria-label="Delete batch"
-                                              title="Delete batch"
-                                              disabled={isDeletingThis}
-                                            >
-                                              <Trash2 size={14} color="var(--danger)" />
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                          <tr className="inv-batches-row">
+                            <td colSpan={7}>
+                              <BatchPanel
+                                item={item}
+                                batches={batchList}
+                                now={now}
+                                deletingBatchKey={deletingBatchKey}
+                                onAdd={openAddBatch}
+                                onEdit={openEditBatch}
+                                onDelete={handleDeleteBatch}
+                              />
                             </td>
                           </tr>
                         )}
@@ -632,9 +694,9 @@ export default function Inventory() {
               }}
               itemLabel="items"
             />
-          </>
+          </div>
         )}
-      </div>
+      </FadeIn>
 
       {modalOpen && (
         <Modal
