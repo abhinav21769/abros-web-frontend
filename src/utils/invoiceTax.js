@@ -1,9 +1,32 @@
-export const GST_RATE_OPTIONS = [5, 12, 18, 28];
+export const DEFAULT_GST_RATE = 5;
 
+// GST slabs in force from 22 Sep 2025 (12% and 28% were folded into 5/18/40).
+export const GST_RATE_OPTIONS = [0, 5, 18, 40];
+
+// Only empty or invalid input falls back to the default; 0 stays 0.
+// Must stay identical to the backend's normalizeGstRate.
 export function normalizeGstRate(value) {
+  if (value == null || (typeof value === "string" && value.trim() === "")) {
+    return DEFAULT_GST_RATE;
+  }
   const rate = Number(value);
-  if (!Number.isFinite(rate) || rate < 0) return 5;
+  if (!Number.isFinite(rate) || rate < 0) return DEFAULT_GST_RATE;
   return rate;
+}
+
+// The current slabs plus any stored rates that are no longer a slab (e.g. 12
+// or 28 on an old medicine or invoice line), so editing an old record keeps
+// its rate selectable instead of silently showing a different one.
+export function getGstRateOptions(...storedRates) {
+  const extras = storedRates
+    .filter((value) => value != null && String(value).trim() !== "")
+    .map(Number)
+    .filter((rate) => Number.isFinite(rate) && rate >= 0);
+  return [...new Set([...GST_RATE_OPTIONS, ...extras])].sort((a, b) => a - b);
+}
+
+export function isLegacyGstRate(rate) {
+  return !GST_RATE_OPTIONS.includes(Number(rate));
 }
 
 export function normalizeDiscount(value) {

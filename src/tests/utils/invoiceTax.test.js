@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  DEFAULT_GST_RATE,
+  GST_RATE_OPTIONS,
+  getGstRateOptions,
+  isLegacyGstRate,
   normalizeGstRate,
   normalizeDiscount,
   calculateLineAmount,
@@ -46,5 +50,66 @@ describe('Invoice Tax Utilities', () => {
     expect(result.cgst).toBe(92.4);
     expect(result.sgst).toBe(92.4);
     expect(result.grandTotal).toBe(1545); // 1360 + 92.4 + 92.4 = 1544.8 rounded to 1545
+  });
+
+  it('offers the post-22-Sep-2025 slabs: 0, 5, 18 and 40', () => {
+    expect(GST_RATE_OPTIONS).toEqual([0, 5, 18, 40]);
+    expect(DEFAULT_GST_RATE).toBe(5);
+  });
+
+  it('normalizeGstRate keeps 0 and only defaults empty input', () => {
+    expect(normalizeGstRate('0')).toBe(0);
+    expect(normalizeGstRate(40)).toBe(40);
+    expect(normalizeGstRate(null)).toBe(DEFAULT_GST_RATE);
+    expect(normalizeGstRate('')).toBe(DEFAULT_GST_RATE);
+    expect(normalizeGstRate('  ')).toBe(DEFAULT_GST_RATE);
+    expect(normalizeGstRate('invalid')).toBe(DEFAULT_GST_RATE);
+  });
+
+  it('getGstRateOptions keeps an old stored rate selectable', () => {
+    expect(getGstRateOptions()).toEqual([0, 5, 18, 40]);
+    expect(getGstRateOptions('5')).toEqual([0, 5, 18, 40]);
+    expect(getGstRateOptions('12')).toEqual([0, 5, 12, 18, 40]);
+    expect(getGstRateOptions(28, '12', undefined, '')).toEqual([0, 5, 12, 18, 28, 40]);
+    expect(getGstRateOptions(null, 'abc', -1)).toEqual([0, 5, 18, 40]);
+  });
+
+  it('isLegacyGstRate flags rates outside the current slabs', () => {
+    expect(isLegacyGstRate(12)).toBe(true);
+    expect(isLegacyGstRate('28')).toBe(true);
+    expect(isLegacyGstRate(0)).toBe(false);
+    expect(isLegacyGstRate('40')).toBe(false);
+  });
+
+  it('a 0% line adds no tax, alongside a 40% line', () => {
+    // Same figures as the backend buildInvoiceTotals test, to keep both sides identical.
+    const items = [
+      { quantity: 10, rate: 50, discount: 0, gstRate: 0 }, // 500, no tax
+      { quantity: 1, rate: 1000, discount: 10, gstRate: 40 }, // 900, 180 + 180
+    ];
+
+    expect(getLineTotalWithGst(items[0])).toBe(500);
+    expect(getLineTotalWithGst(items[1])).toBe(1260);
+
+    const result = calculateInvoiceTax(items);
+    expect(result.subtotal).toBe(1400);
+    expect(result.cgst).toBe(180);
+    expect(result.sgst).toBe(180);
+    expect(result.grandTotal).toBe(1760);
+    expect(result.roundOff).toBe(0);
+  });
+
+  it('a 0% line stays 0% when the rate comes from the medicine', () => {
+    const item = { quantity: 2, rate: 100, medicine: { gstRate: 0 } };
+    expect(getLineTaxableAmount(item)).toBe(200);
+    expect(getLineTotalWithGst(item)).toBe(200);
+  });
+
+  it('an all-0% invoice totals to its rounded subtotal', () => {
+    const result = calculateInvoiceTax([{ quantity: 3, rate: 33.33, discount: 0, gstRate: '0' }]);
+    expect(result.subtotal).toBe(99.99);
+    expect(result.cgst).toBe(0);
+    expect(result.grandTotal).toBe(100);
+    expect(result.roundOff).toBe(0.01);
   });
 });
