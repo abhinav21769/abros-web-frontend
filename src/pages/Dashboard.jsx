@@ -1,430 +1,453 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Pill,
-  Warehouse,
-  ReceiptText,
-  Truck,
-  CalendarX,
-  CalendarClock,
-  ShieldAlert,
-  Building2,
   AlertTriangle,
   ArrowUpRight,
-  PlusCircle,
+  CheckCircle2,
   FileText,
-  ChevronDown,
+  Hourglass,
+  PlusCircle,
+  ReceiptText,
+  RefreshCw,
+  Truck,
+  Warehouse,
 } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import LottieLoader from "../components/ui/LottieLoader";
 import { FadeIn } from "../components/ui/fade-in";
-import { dashboardApi, invoicesApi } from "../api/client";
+import { dashboardApi } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { formatDateTime } from "../utils/dateUtils";
+import { formatCalendarDate, formatDateTime } from "../utils/dateUtils";
+import { formatCurrency } from "../utils/gstReport";
+import {
+  buildAlerts,
+  collectionBreakdown,
+  daysUntil,
+  describeExpiry,
+  expiryTone,
+  formatRecentDate,
+  greeting,
+  inventoryHealth,
+} from "../utils/dashboardMetrics";
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0);
-}
+const STATUS_BADGE = {
+  paid: "badge-success",
+  pending: "badge-warning",
+  cancelled: "badge-danger",
+};
 
-function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function statusBadge(status, item) {
-  const map = {
-    paid: "badge-success",
-    pending: "badge-warning",
-    cancelled: "badge-danger",
-  };
+function StatusBadge({ status, item }) {
   const isPaid = String(status || "").toLowerCase() === "paid";
-  const paidDateVal = item?.paidAt || (isPaid ? (item?.updatedAt || item?.invoiceDate) : null);
-  const formattedDate = paidDateVal ? formatDateTime(paidDateVal) : "";
+  const paidAt = item?.paidAt || (isPaid ? item?.updatedAt || item?.invoiceDate : null);
+  const paidOn = paidAt ? formatDateTime(paidAt) : "";
+  const hasTooltip = isPaid && paidOn;
 
   return (
     <span
-      className={`badge ${map[status] || "badge-neutral"}${isPaid && formattedDate ? " badge-has-tooltip" : ""}`}
-      title={isPaid && formattedDate ? `Paid on: ${formattedDate}` : undefined}
-      style={isPaid ? { cursor: "pointer" } : undefined}
+      className={`badge ${STATUS_BADGE[status] || "badge-neutral"}${hasTooltip ? " badge-has-tooltip" : ""}`}
+      title={hasTooltip ? `Paid on: ${paidOn}` : undefined}
     >
       {status}
-      {isPaid && formattedDate && (
-        <span className="badge-tooltip">
-          Paid on: {formattedDate}
-        </span>
-      )}
+      {hasTooltip && <span className="badge-tooltip">Paid on: {paidOn}</span>}
     </span>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-  valueStyle,
-  icon,
-  iconBg = "var(--surface-elevated)",
-  iconColor = "var(--primary)",
-}) {
+function Kpi({ label, value, sub, icon: Icon, tone }) {
   return (
-    <div className="stat-card">
-      <div className="stat-card-header">
-        <span className="stat-card-label">{label}</span>
-        <div
-          className="stat-card-icon"
-          style={{ backgroundColor: iconBg, color: iconColor }}
-        >
-          {icon}
-        </div>
+    <div className={`dash-kpi dash-tone-${tone}`}>
+      <span className="dash-kpi-icon">
+        <Icon size={18} />
+      </span>
+      <span className="dash-kpi-label">{label}</span>
+      <strong className="dash-kpi-value">{value}</strong>
+      <span className="dash-kpi-sub">{sub}</span>
+    </div>
+  );
+}
+
+function PanelHeader({ title, count, to, cta }) {
+  return (
+    <div className="card-header">
+      <h3>
+        {title}
+        {count > 0 && <span className="dash-count">{count}</span>}
+      </h3>
+      <Link to={to} className="btn btn-secondary btn-sm">
+        {cta} <ArrowUpRight size={14} />
+      </Link>
+    </div>
+  );
+}
+
+function InvoiceTable({ rows, partyLabel, partyOf, numberLabel, emptyText, now }) {
+  if (rows.length === 0) return <div className="empty-state">{emptyText}</div>;
+
+  return (
+    <div className="table-wrap">
+      <table className="dash-table">
+        <thead>
+          <tr>
+            <th>{numberLabel}</th>
+            <th>{partyLabel}</th>
+            <th>Date</th>
+            <th className="num">Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((invoice) => (
+            <tr key={invoice._id}>
+              <td className="dash-ref">{invoice.invoiceNumber}</td>
+              <td className="dash-party" title={partyOf(invoice) || undefined}>
+                {partyOf(invoice) || "—"}
+              </td>
+              <td>{formatRecentDate(invoice.invoiceDate, now)}</td>
+              <td className="num dash-strong">{formatCurrency(invoice.total)}</td>
+              <td>
+                <StatusBadge status={invoice.status} item={invoice} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ExpiryTable({ rows, emptyText, now }) {
+  if (rows.length === 0) {
+    return (
+      <div className="dash-clear">
+        <CheckCircle2 size={22} />
+        {emptyText}
       </div>
-      <div className="stat-card-value" style={valueStyle}>
-        {value}
-      </div>
-      {sub && <div className="stat-card-sub">{sub}</div>}
+    );
+  }
+
+  return (
+    <div className="table-wrap">
+      <table className="dash-table">
+        <thead>
+          <tr>
+            <th>Medicine</th>
+            <th>Batch</th>
+            <th className="num">Qty</th>
+            <th>Expiry</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((med) => {
+            const days = daysUntil(med.expiryDate, now);
+            return (
+              <tr key={`${med._id}-${med.batchNumber}`}>
+                <td>
+                  <div className="dash-strong">{med.name}</div>
+                  {med.manufacturer && <div className="dash-muted">{med.manufacturer}</div>}
+                </td>
+                <td className="dash-mono">{med.batchNumber || "—"}</td>
+                <td className="num">{med.quantity}</td>
+                <td>
+                  <span className={`dash-expiry dash-expiry-${expiryTone(days)}`}>
+                    {describeExpiry(days)}
+                  </span>
+                  <div className="dash-muted">{formatCalendarDate(med.expiryDate)}</div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 export default function Dashboard() {
   const toast = useToast();
-  const [inventory, setInventory] = useState(null);
-  const [customers, setCustomers] = useState(null);
-  const [invoices, setInvoices] = useState(null);
+  const { user } = useAuth();
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
 
   const fetchData = useCallback(() => {
-    dashboardApi
+    setLoading(true);
+    return dashboardApi
       .stats(180)
       .then((res) => {
-        setInventory({ data: res.data.inventory });
-        setCustomers({ data: res.data.customers });
-        setInvoices({ data: res.data.invoices });
-        setLoadFailed(false);
+        setStats(res.data);
       })
       .catch((err) => {
-        setLoadFailed(true);
         toast.error(err.message);
       })
       .finally(() => setLoading(false));
   }, [toast]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchData flags loading up front so a refresh shows immediately.
     fetchData();
   }, [fetchData]);
 
-  const handleQuickStatusUpdate = async (id, newStatus) => {
-    try {
-      const res = await invoicesApi.update(id, { status: newStatus });
-      toast.success(res.message || `Status updated to ${newStatus}`);
-      fetchData();
-    } catch (err) {
-      toast.error(err.message || "Failed to update status");
-    }
-  };
+  const now = useMemo(() => new Date(), [stats]); // eslint-disable-line react-hooks/exhaustive-deps -- re-read the clock whenever fresh data arrives
 
-  if (loading) {
-    return <LottieLoader fullScreen message="Loading operational metrics..." />;
-  }
+  if (!stats) {
+    if (loading) return <LottieLoader fullScreen message="Loading operational metrics..." />;
 
-  if (loadFailed || !inventory || !customers || !invoices) {
     return (
-      <div
-        className="card"
-        style={{ margin: "40px auto", maxWidth: 500, textAlign: "center" }}
-      >
-        <div className="card-body" style={{ padding: "40px 24px" }}>
-          <AlertTriangle
-            size={32}
-            color="var(--warning)"
-            style={{ marginBottom: 12 }}
-          />
-          <h3 style={{ fontSize: "1.1rem", marginBottom: 6 }}>
-            Dashboard Data Unavailable
-          </h3>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
-            Unable to fetch real-time overview metrics. Please refresh or try
-            again.
-          </p>
-        </div>
+      <div className="card dash-failed">
+        <AlertTriangle size={32} />
+        <h3>Dashboard data unavailable</h3>
+        <p>We couldn't fetch the overview metrics. Check your connection and try again.</p>
+        <button type="button" className="btn btn-primary" onClick={fetchData}>
+          <RefreshCw size={16} />
+          Try again
+        </button>
       </div>
     );
   }
 
-  const invStats = inventory.data.stats;
-  const custStats = customers.data.stats;
-  const salesStats = invoices.data.sales.stats;
-  const purchaseStats = invoices.data.purchases.stats;
+  const inventory = stats.inventory.stats;
+  const sales = stats.invoices.sales.stats;
+  const purchases = stats.invoices.purchases.stats;
+  const customers = stats.customers.stats;
 
-  const primaryStats = [
-    {
-      label: "Total Stock Items",
-      value: invStats.totalStock,
-      sub: `${invStats.totalQuantity} total units available`,
-      icon: <Pill size={18} />,
-      iconBg: "rgba(15, 118, 110, 0.12)",
-      iconColor: "var(--primary)",
-    },
-    {
-      label: "Inventory Value",
-      value: formatCurrency(invStats.totalInventoryValue),
-      sub: "Valued at base rate pricing",
-      icon: <Warehouse size={18} />,
-      iconBg: "rgba(2, 132, 199, 0.12)",
-      iconColor: "var(--accent)",
-    },
-    {
-      label: "Sales Revenue",
-      value: formatCurrency(salesStats.totalRevenue),
-      sub:
-        salesStats.pendingAmount > 0
-          ? `${formatCurrency(salesStats.pendingAmount)} pending balance`
-          : `${salesStats.paidInvoices} settled sales`,
-      icon: <ReceiptText size={18} />,
-      iconBg: "rgba(5, 150, 105, 0.12)",
-      iconColor: "var(--success)",
-    },
-    {
-      label: "Purchase Orders",
-      value: purchaseStats.totalInvoices,
-      sub:
-        purchaseStats.totalAmount > 0
-          ? `${formatCurrency(purchaseStats.totalAmount)} cumulative value`
-          : "No orders processed",
-      icon: <Truck size={18} />,
-      iconBg: "rgba(124, 58, 237, 0.12)",
-      iconColor: "#7c3aed",
-    },
-  ];
-
-  const secondaryStats = [
-    {
-      label: "Expired Stock",
-      value: invStats.expiredStock,
-      valueStyle: { color: "var(--danger)" },
-      sub: "Items past expiration date",
-      icon: <CalendarX size={18} />,
-      iconBg: "rgba(220, 38, 38, 0.12)",
-      iconColor: "var(--danger)",
-    },
-    {
-      label: "Expiring Soon",
-      value: invStats.expiringStock,
-      valueStyle: { color: "var(--warning)" },
-      sub: `Within next ${invStats.expiringWithinDays} days`,
-      icon: <CalendarClock size={18} />,
-      iconBg: "rgba(217, 119, 6, 0.12)",
-      iconColor: "var(--warning)",
-    },
-    {
-      label: "Low Stock Alert",
-      value: invStats.lowStockCount,
-      sub: `Medicines below ${invStats.lowStockThreshold ?? 200} units`,
-      icon: <ShieldAlert size={18} />,
-      iconBg: "rgba(37, 99, 235, 0.12)",
-      iconColor: "#2563eb",
-    },
-    {
-      label: "Active Clients",
-      value: custStats.totalCustomers,
-      sub: `${salesStats.totalInvoices} sales · ${purchaseStats.totalInvoices} purchases`,
-      icon: <Building2 size={18} />,
-      iconBg: "rgba(192, 38, 211, 0.12)",
-      iconColor: "#c026d3",
-    },
-  ];
+  const alerts = buildAlerts({ inventory, sales });
+  const collection = collectionBreakdown(sales);
+  const health = inventoryHealth(inventory);
+  const firstName = String(user?.name || "").trim().split(/\s+/)[0];
 
   return (
     <>
       <PageHeader
         title="Operations Dashboard"
         action={
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Link to="/inventory" className="btn btn-primary">
-              <PlusCircle size={16} /> Add Stock
-            </Link>
+          <div className="dash-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={fetchData}
+              disabled={loading}
+            >
+              <RefreshCw size={15} className={loading ? "spin" : ""} />
+              Refresh
+            </button>
             <Link to="/invoices" className="btn btn-secondary">
               <FileText size={16} /> New Sale
+            </Link>
+            <Link to="/inventory" className="btn btn-primary">
+              <PlusCircle size={16} /> Add Stock
             </Link>
           </div>
         }
       />
+      <p className="dash-subtitle">
+        {greeting(now)}
+        {firstName ? `, ${firstName}` : ""}. Here is how the business stands today,{" "}
+        {now.toLocaleDateString("en-IN", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          timeZone: "Asia/Kolkata",
+        })}
+        .
+      </p>
 
-      <FadeIn className="stats-grid" delay={0.05}>
-        {primaryStats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </FadeIn>
-
-      <FadeIn className="stats-grid" delay={0.1}>
-        {secondaryStats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </FadeIn>
-
-      <FadeIn className="dashboard-grid" delay={0.15}>
-        <div className="card">
-          <div className="card-header">
-            <h3>Recent Sales</h3>
-            <Link to="/invoices" className="btn btn-secondary btn-sm">
-              View All <ArrowUpRight size={14} />
-            </Link>
-          </div>
-          <div className="card-body">
-            {invoices.data.sales.recent.length === 0 ? (
-              <div className="empty-state">No sales recorded yet</div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Invoice #</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.data.sales.recent.map((inv) => (
-                      <tr key={inv._id}>
-                        <td>
-                          <span
-                            style={{ fontWeight: 700, color: "var(--primary)" }}
-                          >
-                            {inv.invoiceNumber}
-                          </span>
-                        </td>
-                        <td>{inv.customer?.name || "—"}</td>
-                        <td>{formatDate(inv.invoiceDate)}</td>
-                        <td style={{ fontWeight: 600 }}>
-                          {formatCurrency(inv.total)}
-                        </td>
-                        <td>{statusBadge(inv.status, inv)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      <div className={`dash-body${loading ? " is-loading" : ""}`} aria-busy={loading}>
+        <FadeIn className="dash-alerts" delay={0.03}>
+          {alerts.length === 0 ? (
+            <div className="dash-alert dash-alert-clear">
+              <CheckCircle2 size={22} />
+              <div>
+                <strong>All clear</strong>
+                <span>No expired or expiring stock, low stock or unpaid sales.</span>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          ) : (
+            alerts.map((alert) => (
+              <Link key={alert.id} to={alert.to} className={`dash-alert dash-alert-${alert.tone}`}>
+                <span className="dash-alert-count">{alert.count}</span>
+                <div>
+                  <strong>{alert.title}</strong>
+                  <span>{alert.detail}</span>
+                </div>
+                <em>
+                  {alert.cta} <ArrowUpRight size={13} />
+                </em>
+              </Link>
+            ))
+          )}
+        </FadeIn>
 
-        <div className="card">
-          <div className="card-header">
-            <h3>Recent Purchase Orders</h3>
-            <Link
-              to="/invoices?type=purchase"
-              className="btn btn-secondary btn-sm"
-            >
-              View All <ArrowUpRight size={14} />
-            </Link>
-          </div>
-          <div className="card-body">
-            {invoices.data.purchases.recent.length === 0 ? (
-              <div className="empty-state">No purchase orders recorded yet</div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>PO #</th>
-                      <th>Supplier</th>
-                      <th>Date</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.data.purchases.recent.map((inv) => (
-                      <tr key={inv._id}>
-                        <td>
-                          <span
-                            style={{ fontWeight: 700, color: "var(--accent)" }}
-                          >
-                            {inv.invoiceNumber}
-                          </span>
-                        </td>
-                        <td>{inv.supplier || "—"}</td>
-                        <td>{formatDate(inv.invoiceDate)}</td>
-                        <td style={{ fontWeight: 600 }}>
-                          {formatCurrency(inv.total)}
-                        </td>
-                        <td>{statusBadge(inv.status, inv)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      </FadeIn>
+        <FadeIn className="dash-kpis" delay={0.06}>
+          <Kpi
+            label="Sales revenue"
+            value={formatCurrency(sales.totalRevenue)}
+            sub={`${sales.paidInvoices} paid of ${sales.totalInvoices} sales`}
+            icon={ReceiptText}
+            tone="green"
+          />
+          <Kpi
+            label="Pending collections"
+            value={formatCurrency(sales.pendingAmount)}
+            sub={
+              sales.pendingInvoices > 0
+                ? `${sales.pendingInvoices} unpaid ${sales.pendingInvoices === 1 ? "invoice" : "invoices"}`
+                : "Nothing outstanding"
+            }
+            icon={Hourglass}
+            tone="amber"
+          />
+          <Kpi
+            label="Inventory value"
+            value={formatCurrency(inventory.totalInventoryValue)}
+            sub={`${inventory.totalStock} products · ${inventory.totalQuantity} units`}
+            icon={Warehouse}
+            tone="blue"
+          />
+          <Kpi
+            label="Purchases"
+            value={formatCurrency(purchases.totalAmount)}
+            sub={
+              Number(purchases.pendingAmount) > 0
+                ? `${formatCurrency(purchases.pendingAmount)} still to pay`
+                : `${purchases.totalInvoices} orders · ${customers.totalCustomers} clients`
+            }
+            icon={Truck}
+            tone="violet"
+          />
+        </FadeIn>
 
-      <FadeIn className="dashboard-grid" delay={0.2}>
-        <div className="card">
-          <div className="card-header">
-            <h3>Expiring Stock Alert</h3>
-            <Link to="/inventory" className="btn btn-secondary btn-sm">
-              Manage Stock
-            </Link>
-          </div>
-          <div className="card-body">
-            {inventory.data.expiringMedicines.list.length === 0 ? (
-              <div className="empty-state">No medicines expiring soon</div>
-            ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Medicine</th>
-                      <th>Expiry Date</th>
-                      <th>Quantity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inventory.data.expiringMedicines.list.map((med, i) => (
-                      <tr key={i}>
-                        <td style={{ fontWeight: 600 }}>{med.name}</td>
-                        <td
-                          style={{ color: "var(--warning)", fontWeight: 600 }}
-                        >
-                          {formatDate(med.expiryDate)}
-                        </td>
-                        <td>{med.quantity} units</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        <FadeIn className="dash-insights" delay={0.1}>
+          <section className="card dash-insight">
+            <div className="card-header">
+              <h3>Collections</h3>
+              <span className="dash-muted">{formatCurrency(collection.billed)} billed</span>
+            </div>
+            <div className="dash-insight-body">
+              <div className="dash-split-bar" aria-hidden="true">
+                <span className="dash-split-paid" style={{ width: `${collection.paidPercent}%` }} />
+                <span
+                  className="dash-split-pending"
+                  style={{ width: `${collection.pendingPercent}%` }}
+                />
               </div>
-            )}
-          </div>
-        </div>
+              <dl className="dash-split-legend">
+                <div>
+                  <dt>
+                    <i className="dash-dot dash-dot-paid" /> Collected
+                  </dt>
+                  <dd>{formatCurrency(collection.paid)}</dd>
+                  <small>{collection.paidPercent}%</small>
+                </div>
+                <div>
+                  <dt>
+                    <i className="dash-dot dash-dot-pending" /> Pending
+                  </dt>
+                  <dd>{formatCurrency(collection.pending)}</dd>
+                  <small>{collection.pendingPercent}%</small>
+                </div>
+              </dl>
+              {sales.cancelledInvoices > 0 && (
+                <p className="dash-muted">
+                  {sales.cancelledInvoices} cancelled{" "}
+                  {sales.cancelledInvoices === 1 ? "invoice is" : "invoices are"} not counted.
+                </p>
+              )}
+            </div>
+          </section>
 
-        <div className="card">
-          <div className="card-header">
-            <h3>Expired Stock List</h3>
-            <Link to="/inventory" className="btn btn-secondary btn-sm">
-              Resolve Items
-            </Link>
-          </div>
-          <div className="card-body">
-            {inventory.data.expiredMedicines.list.map((med, i) => (
-              <div className="empty-state" key={i}>
-                No expired medicines in inventory
+          <section className="card dash-insight">
+            <div className="card-header">
+              <h3>Inventory health</h3>
+              <span className="dash-muted">{inventory.totalStock} products</span>
+            </div>
+            <div className="dash-insight-body">
+              {health.map((row) => (
+                <div key={row.id} className="dash-meter">
+                  <div className="dash-meter-top">
+                    <span>{row.label}</span>
+                    <strong>
+                      {row.value} <small>of {row.of}</small>
+                    </strong>
+                  </div>
+                  <div className="dash-meter-track" aria-hidden="true">
+                    <span className={`dash-meter-fill dash-meter-${row.tone}`} style={{ width: `${row.percent}%` }} />
+                  </div>
+                </div>
+              ))}
+              <div className="dash-batch-counts">
+                <span className="dash-expiry dash-expiry-danger">{inventory.expiredStock} expired batches</span>
+                <span className="dash-expiry dash-expiry-warning">
+                  {inventory.expiringStock} expiring in {inventory.expiringWithinDays} days
+                </span>
               </div>
-            ))}
-          </div>
-        </div>
-      </FadeIn>
+            </div>
+          </section>
+        </FadeIn>
+
+        <FadeIn className="dash-grid" delay={0.14}>
+          <section className="card">
+            <PanelHeader title="Recent sales" to="/invoices" cta="View all" />
+            <div className="card-body">
+              <InvoiceTable
+                rows={stats.invoices.sales.recent}
+                numberLabel="Invoice #"
+                partyLabel="Customer"
+                partyOf={(invoice) => invoice.customer?.name}
+                emptyText="No sales recorded yet"
+                now={now}
+              />
+            </div>
+          </section>
+
+          <section className="card">
+            <PanelHeader title="Recent purchase orders" to="/invoices?type=purchase" cta="View all" />
+            <div className="card-body">
+              <InvoiceTable
+                rows={stats.invoices.purchases.recent}
+                numberLabel="PO #"
+                partyLabel="Supplier"
+                partyOf={(invoice) => invoice.supplier}
+                emptyText="No purchase orders recorded yet"
+                now={now}
+              />
+            </div>
+          </section>
+        </FadeIn>
+
+        <FadeIn className="dash-grid" delay={0.18}>
+          <section className="card">
+            <PanelHeader
+              title="Expiring soon"
+              count={stats.inventory.expiringMedicines.count}
+              to="/inventory"
+              cta="Manage stock"
+            />
+            <div className="card-body">
+              <ExpiryTable
+                rows={stats.inventory.expiringMedicines.list}
+                emptyText={`Nothing expires in the next ${inventory.expiringWithinDays} days`}
+                now={now}
+              />
+            </div>
+          </section>
+
+          <section className="card">
+            <PanelHeader
+              title="Expired batches"
+              count={stats.inventory.expiredMedicines.count}
+              to="/inventory"
+              cta="Resolve"
+            />
+            <div className="card-body">
+              <ExpiryTable
+                rows={stats.inventory.expiredMedicines.list}
+                emptyText="No expired medicines in inventory"
+                now={now}
+              />
+            </div>
+          </section>
+        </FadeIn>
+      </div>
     </>
   );
 }
