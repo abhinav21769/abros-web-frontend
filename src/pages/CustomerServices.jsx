@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Lock, LockOpen, Plus, Pencil, Trash2, ShieldCheck } from "lucide-react";
 import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
@@ -7,6 +7,7 @@ import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import { customersApi, customerServicesApi, SECTION_LOCKED } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import useFormRoute from "../hooks/useFormRoute";
 import {
   formatCalendarDate,
   getTodayDateInputValue,
@@ -187,14 +188,13 @@ function CustomerServicesLedger({ sectionToken, onLock }) {
     [recordedNames, customerNames],
   );
 
-  const openCreate = () => {
+  const prepareCreate = () => {
     setEditing(null);
     setForm(emptyForm());
     setFormErrors({});
-    setModalOpen(true);
   };
 
-  const openEdit = (item) => {
+  const prepareEdit = (item) => {
     setEditing(item);
     setForm({
       customerName: item.customerName,
@@ -203,7 +203,56 @@ function CustomerServicesLedger({ sectionToken, onLock }) {
       remarks: item.remarks || "",
     });
     setFormErrors({});
-    setModalOpen(true);
+  };
+
+  // On mobile the form is a page at /customer-services/new or
+  // /customer-services/:id/edit. The section token lives in this page's state,
+  // so the page stays mounted across them (and a reload asks for the password
+  // again before showing anything).
+  const nav = useFormRoute("/customer-services", ([first]) => {
+    if (first === "new") prepareCreate();
+  });
+  const [routeId, routeKind] = nav.segments;
+  const formRouteActive = routeId === "new" || routeKind === "edit";
+  const routeFormReady = routeKind !== "edit" || editing?._id === routeId;
+  const formOpen =
+    (nav.isMobile ? formRouteActive : modalOpen || formRouteActive) && routeFormReady;
+
+  // A reloaded edit URL carries only the id; there is no fetch-by-id for this
+  // section, so pick the entry out of the list once it has loaded.
+  const loadedRouteEditRef = useRef(null);
+  useEffect(() => {
+    if (routeKind !== "edit" || loading) return;
+    if (editing?._id === routeId || loadedRouteEditRef.current === routeId) return;
+    loadedRouteEditRef.current = routeId;
+    const entry = items.find((item) => item._id === routeId);
+    if (entry) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the form can only be filled once the list has loaded
+      prepareEdit(entry);
+    } else {
+      toast.error("That entry could not be found.");
+      nav.close();
+    }
+  });
+  useEffect(() => {
+    if (routeKind !== "edit") loadedRouteEditRef.current = null;
+  }, [routeKind]);
+
+  const openCreate = () => {
+    prepareCreate();
+    if (nav.isMobile) nav.open("new");
+    else setModalOpen(true);
+  };
+
+  const openEdit = (item) => {
+    prepareEdit(item);
+    if (nav.isMobile) nav.open(`${item._id}/edit`);
+    else setModalOpen(true);
+  };
+
+  const closeForm = () => {
+    setModalOpen(false);
+    if (formRouteActive) nav.close();
   };
 
   const handleChange = (e) => {
@@ -234,7 +283,7 @@ function CustomerServicesLedger({ sectionToken, onLock }) {
         ? await customerServicesApi.update(sectionToken, editing._id, payload)
         : await customerServicesApi.create(sectionToken, payload);
       toast.success(res.message);
-      setModalOpen(false);
+      closeForm();
       fetchItems();
       fetchRecordedNames();
     } catch (err) {
@@ -372,13 +421,13 @@ function CustomerServicesLedger({ sectionToken, onLock }) {
         )}
       </div>
 
-      {modalOpen && (
+      {formOpen && (
         <Modal
           title={editing ? "Edit Entry" : "Add Entry"}
-          onClose={() => setModalOpen(false)}
+          onClose={closeForm}
           footer={
             <>
-              <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>
+              <button className="btn btn-secondary" onClick={closeForm}>
                 Cancel
               </button>
               <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>

@@ -1337,6 +1337,133 @@ select option {
   max-height: 92vh;
 }
 
+/* Mobile page - what a Modal renders as at the mobile breakpoint (see
+   ui/Modal.jsx). A full-screen page with a back header, scrolling body and a
+   pinned action bar, so forms are never squeezed into a centred dialog. */
+.mobile-page {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text-main);
+  animation: fadeIn 0.18s ease-out;
+}
+
+.mobile-page-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+.mobile-page-back {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.mobile-page-back:hover,
+.mobile-page-back:active {
+  background: var(--surface-elevated);
+}
+
+.mobile-page-title {
+  min-width: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-page-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px;
+}
+
+.mobile-page-body--preview {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.mobile-page-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.mobile-page-footer .btn {
+  flex: 1 1 120px;
+  justify-content: center;
+}
+
+.mobile-page .invoice-preview-body {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  border-radius: 0;
+}
+
+@media (max-width: 640px) {
+  .mobile-page .form-grid,
+  .mobile-page .invoice-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Ten desktop columns do not fit a phone: each line item becomes a card
+     with the medicine on top and the numbers two to a row beneath it. */
+  .mobile-page .invoice-single-line-item,
+  .mobile-page .invoice-single-line-item--sale {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .mobile-page .invoice-single-line-item .input-group-medicine {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-page .invoice-item-remove {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-bottom: 0;
+  }
+
+  .mobile-page .invoice-total {
+    width: 100%;
+  }
+
+  .mobile-page .medicine-select-row .searchable-select-dropdown {
+    min-width: 0;
+  }
+}
+
 .invoice-preview-body {
   min-height: 70vh;
   height: 70vh;

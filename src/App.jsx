@@ -23,12 +23,15 @@ export default function App() {
         <ToastProvider>
           <BrowserRouter>
             <Routes>
+              {/* Pages that open forms are mounted at `<path>/*`: on mobile their
+                  dialogs become sub-routes (/customers/new, /invoices/:id/edit, ...)
+                  rendered by the same page, so the list underneath stays put. */}
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                   <Route index element={<Dashboard />} />
-                  <Route path="invoices" element={<Invoices />} />
-                  <Route path="inventory" element={<Inventory />} />
+                  <Route path="invoices/*" element={<Invoices />} />
+                  <Route path="inventory/*" element={<Inventory />} />
                   <Route path="product-sales" element={<ProductSales />} />
                   <Route
                     path="customer-sales"
@@ -39,9 +42,9 @@ export default function App() {
                     path="purchases"
                     element={<Navigate to="/invoices?type=purchase" replace />}
                   />
-                  <Route path="customers" element={<Customers />} />
+                  <Route path="customers/*" element={<Customers />} />
                   <Route path="gst-returns" element={<GstReturns />} />
-                  <Route path="customer-services" element={<CustomerServices />} />
+                  <Route path="customer-services/*" element={<CustomerServices />} />
                   <Route path="ledger" element={<Ledger />} /> {/* L-1 FIX: Register Ledger route */}
                 </Route>
               </Route>

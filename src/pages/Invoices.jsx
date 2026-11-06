@@ -20,6 +20,7 @@ import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import AddMedicineModal from "../components/AddMedicineModal";
+import useFormRoute from "../hooks/useFormRoute";
 import { invoicesApi, customersApi, medicinesApi } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import {
@@ -379,36 +380,27 @@ export default function Invoices() {
     });
   };
 
-  const openCreate = async () => {
+  // Loads what the form needs and fills it in; resolves false when the form
+  // cannot open (the reason has already been toasted).
+  const prepareCreate = async () => {
     try {
       const { invoiceNumber, medicines: activeMedicines } =
         await loadFormData(invoiceType);
       if (activeMedicines.length === 0 && invoiceType !== "purchase") {
         toast.error("Add medicines to inventory before creating an invoice.");
-        return;
+        return false;
       }
       setEditing(null);
       setForm({ ...emptyForm, invoiceNumber, items: [makeEmptyItem()] });
       setFormErrors({});
-      setModalOpen(true);
+      return true;
     } catch (err) {
       toast.error(err.message);
+      return false;
     }
   };
 
-  const handleMedicineCreated = (medicine) => {
-    setMedicines((prev) => {
-      if (prev.some((item) => item._id === medicine._id)) return prev;
-      return [...prev, medicine];
-    });
-
-    if (newMedicineLineIndex != null) {
-      handleItemChange(newMedicineLineIndex, "medicine", medicine._id);
-    }
-    setNewMedicineLineIndex(null);
-  };
-
-  const openEdit = async (item) => {
+  const prepareEdit = async (item) => {
     try {
       await loadFormData(item.invoiceType || "sale");
       setEditing(item);
@@ -440,10 +432,95 @@ export default function Invoices() {
         })),
       });
       setFormErrors({});
-      setModalOpen(true);
+      return true;
     } catch (err) {
       toast.error(err.message);
+      return false;
     }
+  };
+
+  // On mobile every dialog is a page: /invoices/new, /invoices/:id/edit,
+  // /invoices/:id/preview, and .../add-medicine on top of either form. The list
+  // (with its tab, search and paging) stays mounted behind them, and the
+  // `?type=purchase` query rides along on each URL.
+  const nav = useFormRoute("/invoices", async ([first, second], { close }) => {
+    if (first === "new") {
+      if (!(await prepareCreate())) close();
+      return;
+    }
+    try {
+      const res = await invoicesApi.get(first);
+      if (second === "edit") {
+        if (!(await prepareEdit(res.data))) close();
+      } else if (second === "preview") {
+        setPreviewInvoice(res.data);
+      }
+    } catch (err) {
+      toast.error(err.message);
+      close();
+    }
+  });
+  const [routeId, routeKind] = nav.segments;
+  const formRouteActive = routeId === "new" || routeKind === "edit";
+  const previewRouteActive = routeKind === "preview";
+  const addMedicineRouteActive = nav.segments[nav.segments.length - 1] === "add-medicine";
+  const routeFormReady = routeKind !== "edit" || editing?._id === routeId;
+  const formOpen =
+    (nav.isMobile ? formRouteActive : modalOpen || formRouteActive) && routeFormReady;
+  const previewOpen =
+    Boolean(previewInvoice) &&
+    (!nav.isMobile || (previewRouteActive && previewInvoice._id === routeId));
+  const addMedicineOpen = nav.isMobile
+    ? addMedicineRouteActive
+    : newMedicineLineIndex != null || addMedicineRouteActive;
+
+  const openCreate = async () => {
+    if (!(await prepareCreate())) return;
+    if (nav.isMobile) nav.open("new");
+    else setModalOpen(true);
+  };
+
+  const closeForm = () => {
+    setModalOpen(false);
+    if (formRouteActive) nav.close();
+  };
+
+  const openPreview = (item) => {
+    setPreviewInvoice(item);
+    if (nav.isMobile) nav.open(`${item._id}/preview`);
+  };
+
+  const closePreview = () => {
+    setPreviewInvoice(null);
+    if (previewRouteActive) nav.close();
+  };
+
+  const openAddMedicine = (lineIndex) => {
+    setNewMedicineLineIndex(lineIndex);
+    if (nav.isMobile) nav.open(`${nav.key}/add-medicine`);
+  };
+
+  const closeAddMedicine = () => {
+    setNewMedicineLineIndex(null);
+    if (addMedicineRouteActive) nav.close();
+  };
+
+  const handleMedicineCreated = (medicine) => {
+    setMedicines((prev) => {
+      if (prev.some((item) => item._id === medicine._id)) return prev;
+      return [...prev, medicine];
+    });
+
+    if (newMedicineLineIndex != null) {
+      handleItemChange(newMedicineLineIndex, "medicine", medicine._id);
+    }
+    setNewMedicineLineIndex(null);
+  };
+
+  const openEdit = async (item) => {
+    if (!(await prepareEdit(item))) return;
+    if (nav.isMobile) nav.open(`${item._id}/edit`);
+    else setModalOpen(true);
   };
 
   const handleChange = (e) => {
@@ -666,10 +743,18 @@ export default function Invoices() {
         ? await invoicesApi.update(editing._id, payload)
         : await invoicesApi.create(payload);
       toast.success(res.message);
-      setModalOpen(false);
+      const created = !editing && res?.data;
+      // A new invoice goes straight to its preview; on a form page that swaps
+      // the form for the preview page so back lands on the list.
+      if (created && formRouteActive) {
+        setModalOpen(false);
+        nav.replace(`${res.data._id}/preview`);
+      } else {
+        closeForm();
+      }
       fetchItems();
 
-      if (!editing && res?.data) {
+      if (created) {
         try {
           const detailRes = await invoicesApi.get(res.data._id);
           setPreviewInvoice(detailRes?.data || res.data);
@@ -859,7 +944,7 @@ export default function Invoices() {
                           </button>
                           <button
                             className="btn btn-ghost btn-sm"
-                            onClick={() => setPreviewInvoice(item)}
+                            onClick={() => openPreview(item)}
                             aria-label="Preview invoice"
                             title="Preview invoice"
                           >
@@ -910,7 +995,7 @@ export default function Invoices() {
         )}
       </div>
 
-      {modalOpen && (
+      {formOpen && (
         <Modal
           title={
             editing
@@ -921,13 +1006,13 @@ export default function Invoices() {
                 ? "New Purchase Invoice"
                 : "New Sale Invoice"
           }
-          onClose={() => setModalOpen(false)}
+          onClose={closeForm}
           large
           footer={
             <>
               <button
                 className="btn btn-secondary"
-                onClick={() => setModalOpen(false)}
+                onClick={closeForm}
               >
                 Cancel
               </button>
@@ -1147,7 +1232,7 @@ export default function Invoices() {
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm medicine-add-btn"
-                            onClick={() => setNewMedicineLineIndex(index)}
+                            onClick={() => openAddMedicine(index)}
                           >
                             <Plus size={14} /> New
                           </button>
@@ -1351,15 +1436,15 @@ export default function Invoices() {
           </form>
         </Modal>
       )}
-      {previewInvoice && (
+      {previewOpen && (
         <InvoicePreviewModal
           invoice={previewInvoice}
-          onClose={() => setPreviewInvoice(null)}
+          onClose={closePreview}
         />
       )}
-      {newMedicineLineIndex != null && (
+      {addMedicineOpen && (
         <AddMedicineModal
-          onClose={() => setNewMedicineLineIndex(null)}
+          onClose={closeAddMedicine}
           onCreated={handleMedicineCreated}
         />
       )}

@@ -7,6 +7,7 @@ import Modal from "../components/ui/Modal";
 import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import { customersApi } from "../api/client";
+import useFormRoute from "../hooks/useFormRoute";
 import { useToast } from "../context/ToastContext";
 import {
   clearFieldError,
@@ -56,14 +57,13 @@ export default function Customers() {
     fetchItems();
   }, [fetchItems]);
 
-  const openCreate = () => {
+  const prepareCreate = () => {
     setEditing(null);
     setForm(emptyForm);
     setFormErrors({});
-    setModalOpen(true);
   };
 
-  const openEdit = (item) => {
+  const prepareEdit = (item) => {
     setEditing(item);
     setForm({
       name: item.name,
@@ -73,7 +73,45 @@ export default function Customers() {
       dlNo: item.dlNo || "",
     });
     setFormErrors({});
-    setModalOpen(true);
+  };
+
+  // On mobile the form is a page at /customers/new or /customers/:id/edit; the
+  // list stays mounted behind it, so its search and paging survive the trip.
+  const nav = useFormRoute("/customers", async ([first, second], { close }) => {
+    if (first === "new") {
+      prepareCreate();
+      return;
+    }
+    if (second !== "edit") return;
+    try {
+      const res = await customersApi.get(first);
+      prepareEdit(res.data);
+    } catch (err) {
+      toast.error(err.message);
+      close();
+    }
+  });
+  const formRouteActive = nav.segments[0] === "new" || nav.segments[1] === "edit";
+  // A reloaded /customers/:id/edit has nothing to show until the customer loads.
+  const routeFormReady = nav.segments[1] !== "edit" || editing?._id === nav.segments[0];
+  const formOpen =
+    (nav.isMobile ? formRouteActive : modalOpen || formRouteActive) && routeFormReady;
+
+  const openCreate = () => {
+    prepareCreate();
+    if (nav.isMobile) nav.open("new");
+    else setModalOpen(true);
+  };
+
+  const openEdit = (item) => {
+    prepareEdit(item);
+    if (nav.isMobile) nav.open(`${item._id}/edit`);
+    else setModalOpen(true);
+  };
+
+  const closeForm = () => {
+    setModalOpen(false);
+    if (formRouteActive) nav.close();
   };
 
   const handleChange = (e) => {
@@ -106,7 +144,7 @@ export default function Customers() {
         ? await customersApi.update(editing._id, payload)
         : await customersApi.create(payload);
       toast.success(res.message);
-      setModalOpen(false);
+      closeForm();
       fetchItems();
     } catch (err) {
       toast.error(err.message);
@@ -223,13 +261,13 @@ export default function Customers() {
         )}
       </div>
 
-      {modalOpen && (
+      {formOpen && (
         <Modal
           title={editing ? "Edit Customer" : "Add Customer"}
-          onClose={() => setModalOpen(false)}
+          onClose={closeForm}
           footer={
             <>
-              <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>
+              <button className="btn btn-secondary" onClick={closeForm}>
                 Cancel
               </button>
               <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
