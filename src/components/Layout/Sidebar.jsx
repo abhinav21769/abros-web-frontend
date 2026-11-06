@@ -82,7 +82,8 @@ export default function Sidebar({ isOpen = false, onClose }) {
                 ? { pathname: to, search: "" }
                 : to;
           const isActive = invoiceTab
-            ? location.pathname === to && activeInvoiceTab === invoiceTab
+            ? (location.pathname === to || location.pathname.startsWith(`${to}/`)) &&
+              activeInvoiceTab === invoiceTab
             : undefined;
 
           return (
