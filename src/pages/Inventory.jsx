@@ -10,6 +10,7 @@ import PageHeader from "../components/ui/PageHeader";
 import { FadeIn } from "../components/ui/fade-in";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
+import useFormRoute from "../hooks/useFormRoute";
 import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import { medicinesApi } from "../api/client";
@@ -214,7 +215,7 @@ export default function Inventory() {
     });
   };
 
-  const openAddBatch = (medicine) => {
+  const prepareAddBatch = (medicine) => {
     setTargetMedicine(medicine);
     setTargetBatchIndex(-1);
     const initialMrp = medicine.mrp != null ? String(medicine.mrp) : "";
@@ -227,10 +228,9 @@ export default function Inventory() {
       quantity: "0",
     });
     setBatchFormErrors({});
-    setBatchModalOpen(true);
   };
 
-  const openEditBatch = (medicine, batch, batchIdx) => {
+  const prepareEditBatch = (medicine, batch, batchIdx) => {
     setTargetMedicine(medicine);
     setTargetBatchIndex(batchIdx);
     const mrpStr = String(batch.mrp ?? "");
@@ -243,7 +243,93 @@ export default function Inventory() {
       quantity: String(batch.quantity ?? 0),
     });
     setBatchFormErrors({});
-    setBatchModalOpen(true);
+  };
+
+  const prepareCreate = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setFormErrors({});
+  };
+
+  const prepareEdit = (item) => {
+    setEditing(item);
+    setForm({
+      name: item.name || "",
+      expiryDate: toDateInputValue(item.expiryDate),
+      packagingType: item.packagingType || "",
+      mrp: String(item.mrp ?? ""),
+      rate: String(item.rate ?? ""),
+      quantity: String(item.quantity ?? 0),
+      batchNumber: item.batchNumber || "",
+      manufacturer: item.manufacturer || "",
+      hsn: item.hsn || "",
+      gstRate: String(item.gstRate ?? 5),
+      description: item.description || "",
+    });
+    setFormErrors({});
+  };
+
+  // On mobile each form is a page: /inventory/new, /inventory/:id/edit,
+  // /inventory/:id/batches/new and /inventory/:id/batches/:index/edit. The list
+  // stays mounted behind it, so search, paging and expanded rows survive.
+  const nav = useFormRoute("/inventory", async ([id, kind, third, fourth], { close }) => {
+    if (id === "new") {
+      prepareCreate();
+      return;
+    }
+    try {
+      const res = await medicinesApi.get(id);
+      const medicine = res.data;
+      if (kind === "edit") {
+        prepareEdit(medicine);
+      } else if (kind === "batches" && third === "new") {
+        prepareAddBatch(medicine);
+      } else if (kind === "batches" && fourth === "edit") {
+        const batchIdx = Number(third);
+        const batch = medicine.batches?.[batchIdx];
+        if (!batch) throw new Error("That batch no longer exists.");
+        prepareEditBatch(medicine, batch, batchIdx);
+      }
+    } catch (err) {
+      toast.error(err.message);
+      close();
+    }
+  });
+  const [routeId, routeKind, routeThird] = nav.segments;
+  const formRouteActive = routeId === "new" || routeKind === "edit";
+  const batchRouteActive = routeKind === "batches";
+  const routeFormReady = routeKind !== "edit" || editing?._id === routeId;
+  const routeBatchReady =
+    !batchRouteActive ||
+    (targetMedicine?._id === routeId &&
+      (routeThird === "new" ? targetBatchIndex === -1 : targetBatchIndex === Number(routeThird)));
+  const formOpen =
+    (nav.isMobile ? formRouteActive : modalOpen || formRouteActive) && routeFormReady;
+  const batchFormOpen =
+    (nav.isMobile ? batchRouteActive : batchModalOpen || batchRouteActive) && routeBatchReady;
+
+  // `replace` swaps the current form page for the batch page instead of
+  // stacking one on top of the other.
+  const openAddBatch = (medicine, replace = false) => {
+    prepareAddBatch(medicine);
+    if (nav.isMobile || replace) {
+      const sub = `${medicine._id}/batches/new`;
+      if (replace) nav.replace(sub);
+      else nav.open(sub);
+    } else {
+      setBatchModalOpen(true);
+    }
+  };
+
+  const openEditBatch = (medicine, batch, batchIdx) => {
+    prepareEditBatch(medicine, batch, batchIdx);
+    if (nav.isMobile) nav.open(`${medicine._id}/batches/${batchIdx}/edit`);
+    else setBatchModalOpen(true);
+  };
+
+  const closeBatchForm = () => {
+    setBatchModalOpen(false);
+    if (batchRouteActive) nav.close();
   };
 
   const handleSaveBatch = async (e) => {
@@ -268,7 +354,7 @@ export default function Inventory() {
         );
         if (excludeIndex === -1) {
           toast.error("This batch no longer exists - it may have changed elsewhere. Refreshing the list.");
-          setBatchModalOpen(false);
+          closeBatchForm();
           fetchItems();
           return;
         }
@@ -298,7 +384,7 @@ export default function Inventory() {
 
       await medicinesApi.update(targetMedicine._id, { batches: freshBatches });
       toast.success(isEditingBatch ? "Batch updated successfully!" : "New batch added successfully!");
-      setBatchModalOpen(false);
+      closeBatchForm();
       fetchItems();
     } catch (err) {
       toast.error(err.message || "Failed to save batch");
@@ -378,29 +464,20 @@ export default function Inventory() {
   }, [searchInput]);
 
   const openCreate = () => {
-    setEditing(null);
-    setForm(emptyForm);
-    setFormErrors({});
-    setModalOpen(true);
+    prepareCreate();
+    if (nav.isMobile) nav.open("new");
+    else setModalOpen(true);
   };
 
   const openEdit = (item) => {
-    setEditing(item);
-    setForm({
-      name: item.name || "",
-      expiryDate: toDateInputValue(item.expiryDate),
-      packagingType: item.packagingType || "",
-      mrp: String(item.mrp ?? ""),
-      rate: String(item.rate ?? ""),
-      quantity: String(item.quantity ?? 0),
-      batchNumber: item.batchNumber || "",
-      manufacturer: item.manufacturer || "",
-      hsn: item.hsn || "",
-      gstRate: String(item.gstRate ?? 5),
-      description: item.description || "",
-    });
-    setFormErrors({});
-    setModalOpen(true);
+    prepareEdit(item);
+    if (nav.isMobile) nav.open(`${item._id}/edit`);
+    else setModalOpen(true);
+  };
+
+  const closeForm = () => {
+    setModalOpen(false);
+    if (formRouteActive) nav.close();
   };
 
   const handleChange = (e) => {
@@ -492,7 +569,7 @@ export default function Inventory() {
         ? await medicinesApi.update(editing._id, payload)
         : await medicinesApi.create(payload);
       toast.success(res.message);
-      setModalOpen(false);
+      closeForm();
       fetchItems();
     } catch (err) {
       toast.error(err.message);
@@ -698,15 +775,15 @@ export default function Inventory() {
         )}
       </FadeIn>
 
-      {modalOpen && (
+      {formOpen && (
         <Modal
           title={editing ? `Edit Medicine: ${editing.name}` : "Add Medicine Product"}
-          onClose={() => setModalOpen(false)}
+          onClose={closeForm}
           footer={
             <>
               <button
                 className="btn btn-secondary"
-                onClick={() => setModalOpen(false)}
+                onClick={closeForm}
               >
                 Cancel
               </button>
@@ -855,7 +932,7 @@ export default function Inventory() {
                       className="btn btn-secondary btn-sm"
                       onClick={() => {
                         setModalOpen(false);
-                        openAddBatch(editing);
+                        openAddBatch(editing, formRouteActive);
                       }}
                       style={{ fontSize: "0.8rem" }}
                     >
@@ -892,16 +969,16 @@ export default function Inventory() {
         </Modal>
       )}
 
-      {batchModalOpen && (
+      {batchFormOpen && (
         <Modal
           title={targetBatchIndex >= 0 ? `Edit Batch: ${batchForm.batchNumber}` : `Add New Batch for ${targetMedicine?.name}`}
-          onClose={() => setBatchModalOpen(false)}
+          onClose={closeBatchForm}
           footer={
             <>
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => setBatchModalOpen(false)}
+                onClick={closeBatchForm}
               >
                 Cancel
               </button>
