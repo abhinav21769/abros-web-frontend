@@ -323,6 +323,8 @@ export default function Invoices() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [search, setSearch] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -339,12 +341,16 @@ export default function Invoices() {
     setInvoiceType(tabFromUrl);
     setPage(1);
     setSearch("");
+    setPaymentFilter("");
+    setStatusFilter("");
   }, [tabFromUrl]);
 
   const fetchItems = useCallback(() => {
     setLoading(true);
     const params = { page, limit, invoiceType };
     if (search) params.search = search;
+    if (paymentFilter) params.paymentType = paymentFilter;
+    if (statusFilter) params.status = statusFilter;
 
     invoicesApi
       .list(params)
@@ -354,7 +360,7 @@ export default function Invoices() {
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
-  }, [page, limit, search, invoiceType, toast]);
+  }, [page, limit, search, paymentFilter, statusFilter, invoiceType, toast]);
 
   useEffect(() => {
     fetchItems();
@@ -877,6 +883,33 @@ export default function Invoices() {
               setPage(1);
             }}
           />
+          <div className="toolbar-filters">
+            <select
+              aria-label="Filter by bill type"
+              value={paymentFilter}
+              onChange={(e) => {
+                setPaymentFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All bill types</option>
+              <option value="cash">Cash</option>
+              <option value="credit">Credit</option>
+            </select>
+            <select
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
         </div>
 
         {loading ? (
@@ -885,7 +918,9 @@ export default function Invoices() {
           </div>
         ) : items.length === 0 ? (
           <div className="empty-state">
-            No {isPurchase ? "purchase" : "sale"} invoices found
+            {search || paymentFilter || statusFilter
+              ? `No ${isPurchase ? "purchase" : "sale"} invoices match your filters`
+              : `No ${isPurchase ? "purchase" : "sale"} invoices found`}
           </div>
         ) : (
           <>

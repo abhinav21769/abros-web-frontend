@@ -732,6 +732,21 @@ a {
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
 }
 
+.toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.toolbar-filters select {
+  width: auto;
+  min-width: 150px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  font-size: 0.875rem;
+}
+
 /* Page Tabs */
 .page-tabs {
   display: flex;
