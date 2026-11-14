@@ -3,6 +3,20 @@ export function isMobileBrowser() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+export function isAndroidBrowser() {
+  if (typeof navigator === "undefined") return false;
+  return /Android/i.test(navigator.userAgent);
+}
+
+// Whether <object>/<iframe> can show a PDF. Android browsers cannot (they
+// leave a blank box or offer a download); iOS Safari can.
+export function canEmbedPdf() {
+  if (typeof navigator === "undefined") return true;
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) return true;
+  if (isAndroidBrowser()) return false;
+  return navigator.pdfViewerEnabled !== false;
+}
+
 export function ensurePdfBlob(blob) {
   if (blob instanceof Blob && blob.type === "application/pdf") {
     return blob;

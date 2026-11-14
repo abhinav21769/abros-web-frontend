@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, ExternalLink } from "lucide-react";
 import Modal from "./ui/Modal";
 import LottieLoader from "./ui/LottieLoader";
@@ -7,7 +7,9 @@ import {
   downloadInvoicePdf,
   generateInvoicePdfBlob,
 } from "../utils/invoiceExport";
+import PdfCanvasViewer from "./PdfCanvasViewer";
 import {
+  canEmbedPdf,
   createPdfObjectUrl,
   isMobileBrowser,
   openPdfBlobInNewTab,
@@ -23,6 +25,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
   const [embedFailed, setEmbedFailed] = useState(false);
   const previewUrlRef = useRef("");
   const mobile = isMobileBrowser();
+  const embeddable = canEmbedPdf();
 
   const revokeCurrentUrl = () => {
     revokePdfObjectUrl(previewUrlRef.current);
@@ -87,6 +90,8 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
     }
   };
 
+  const handleCanvasError = useCallback(() => setEmbedFailed(true), []);
+
   const handleOpenPdf = () => {
     if (pdfBlob) {
       openPdfBlobInNewTab(pdfBlob);
@@ -100,6 +105,7 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
   if (!invoice) return null;
 
   const showInlinePreview = previewUrl && !embedFailed;
+  const showCanvasPreview = showInlinePreview && !embeddable && pdfBlob;
 
   return (
     <Modal
@@ -135,7 +141,13 @@ export default function InvoicePreviewModal({ invoice, onClose }) {
           <LottieLoader message="Generating preview..." compact />
         ) : error ? (
           <div className="invoice-preview-error">{error}</div>
-        ) : showInlinePreview ? (
+        ) : showCanvasPreview ? (
+          <PdfCanvasViewer
+            blob={pdfBlob}
+            label={`Invoice ${invoice.invoiceNumber} preview`}
+            onError={handleCanvasError}
+          />
+        ) : showInlinePreview && embeddable ? (
           <object
             data={previewUrl}
             type="application/pdf"
