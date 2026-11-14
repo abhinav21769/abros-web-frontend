@@ -1489,6 +1489,33 @@ select option {
   overflow: hidden;
 }
 
+.pdf-canvas-viewer {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #334155;
+}
+
+.pdf-canvas-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdf-canvas-page {
+  display: block;
+  max-width: 100%;
+  background: #ffffff;
+}
+
+.pdf-canvas-status {
+  margin: 0;
+  padding: 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
 .invoice-preview-frame {
   flex: 1;
   width: 100%;
