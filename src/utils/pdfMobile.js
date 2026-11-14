@@ -8,12 +8,23 @@ export function isAndroidBrowser() {
   return /Android/i.test(navigator.userAgent);
 }
 
+// Phones and tablets, including Android Chrome in "Desktop site" mode, whose
+// user agent no longer says Android but which still has touch and a Linux
+// platform and still cannot show a PDF inline.
+function isAndroidLike() {
+  if (isAndroidBrowser()) return true;
+  if (navigator.userAgentData?.mobile) return true;
+  return (
+    navigator.maxTouchPoints > 1 && /Linux|Android/i.test(navigator.platform || "")
+  );
+}
+
 // Whether <object>/<iframe> can show a PDF. Android browsers cannot (they
-// leave a blank box or offer a download); iOS Safari can.
+// leave a blank box or offer an "Open" button); iOS Safari can.
 export function canEmbedPdf() {
   if (typeof navigator === "undefined") return true;
   if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) return true;
-  if (isAndroidBrowser()) return false;
+  if (isAndroidLike()) return false;
   return navigator.pdfViewerEnabled !== false;
 }
 
