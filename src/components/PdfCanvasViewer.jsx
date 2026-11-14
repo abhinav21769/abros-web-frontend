@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { renderPdfPages } from "../utils/pdfCanvas";
 
 /**
  * Renders a PDF blob page by page onto canvases. Android browsers have no
@@ -21,38 +22,12 @@ export default function PdfCanvasViewer({ blob, label, onError }) {
 
     (async () => {
       try {
-        const [pdfjs, worker] = await Promise.all([
-          import("pdfjs-dist/legacy/build/pdf.min.mjs"),
-          import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
-        ]);
-        pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-
-        const data = new Uint8Array(await blob.arrayBuffer());
-        pdf = await pdfjs.getDocument({ data }).promise;
-
-        const cssWidth = container.clientWidth || window.innerWidth;
-        const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
-
-        for (let n = 1; n <= pdf.numPages; n += 1) {
-          if (cancelled) return;
-          const page = await pdf.getPage(n);
-          const base = page.getViewport({ scale: 1 });
-          const scale = cssWidth / base.width;
-          const viewport = page.getViewport({ scale: scale * pixelRatio });
-
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.floor(viewport.width);
-          canvas.height = Math.floor(viewport.height);
-          canvas.style.width = `${cssWidth}px`;
-          canvas.style.height = `${Math.floor(viewport.height / pixelRatio)}px`;
-          canvas.className = "pdf-canvas-page";
-          container.appendChild(canvas);
-
-          await page.render({
-            canvasContext: canvas.getContext("2d"),
-            viewport,
-          }).promise;
-        }
+        pdf = await renderPdfPages(blob, container, {
+          cssWidth: container.clientWidth || window.innerWidth,
+          pixelRatio: Math.min(window.devicePixelRatio || 1, 3),
+          className: "pdf-canvas-page",
+          isCancelled: () => cancelled,
+        });
       } catch (err) {
         if (!cancelled) onError?.(err);
       } finally {
