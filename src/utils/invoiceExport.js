@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
+  canEmbedPdf,
   ensurePdfBlob,
   isMobileBrowser,
   openPdfBlobInNewTab,
@@ -621,6 +622,14 @@ export async function downloadInvoicePdf(invoice) {
 
 export async function printInvoicePdf(invoice) {
   const blob = await generateInvoicePdfBlob(invoice);
+
+  // Android cannot show a PDF in a tab or an iframe, so a blob tab opens
+  // blank and the iframe has nothing to print. Print the pages directly.
+  if (!canEmbedPdf()) {
+    const { printPdfBlobAsCanvas } = await import("./pdfCanvas");
+    await printPdfBlobAsCanvas(blob);
+    return { method: "print" };
+  }
 
   if (isMobileBrowser()) {
     openPdfBlobInNewTab(blob);

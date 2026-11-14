@@ -5120,3 +5120,35 @@ a.dash-alert:hover {
   opacity: 0.3;
   cursor: not-allowed;
 }
+
+/* Android print path (printPdfBlobAsCanvas): the invoice pages live in an
+   off-screen layer that only the printed output shows. */
+.pdf-print-root {
+  position: fixed;
+  left: -100000px;
+  top: 0;
+}
+
+@media print {
+  body > *:not(.pdf-print-root) {
+    display: none !important;
+  }
+
+  .pdf-print-root {
+    position: static;
+    left: auto;
+  }
+
+  .pdf-print-page {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .pdf-print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+}
