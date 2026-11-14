@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import logger from "../utils/logger";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -16,6 +17,7 @@ import SearchSelect from "../components/SearchSelect";
 import PageHeader from "../components/ui/PageHeader";
 import Pagination from "../components/ui/Pagination";
 import Modal from "../components/ui/Modal";
+import CalendarPicker from "../components/ui/CalendarPicker";
 import FieldError from "../components/ui/FieldError";
 import LottieLoader from "../components/ui/LottieLoader";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
@@ -74,6 +76,7 @@ const emptyForm = {
   status: "pending",
   paymentType: "credit",
   invoiceDate: getTodayDateInputValue(),
+  paidAt: "",
   items: [makeEmptyItem()],
 };
 
@@ -93,9 +96,67 @@ function formatCurrency(value) {
   }).format(Number(value) || 0);
 }
 
+// Asks on which day the money came in before an invoice is marked paid. It is
+// portalled to <body> so the table row's stacking context cannot clip it.
+function PaymentDateModal({ invoice, onConfirm, onClose }) {
+  const today = getTodayDateInputValue();
+  const invoiceDay = toDateInputValue(invoice?.invoiceDate);
+  const [paidOn, setPaidOn] = useState(today);
+  const [saving, setSaving] = useState(false);
+
+  const invalid =
+    !paidOn || paidOn > today || (invoiceDay && paidOn < invoiceDay);
+
+  const handleConfirm = async () => {
+    if (invalid || saving) return;
+    setSaving(true);
+    try {
+      await onConfirm(paidOn);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return createPortal(
+    <Modal
+      title="Mark invoice as paid"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleConfirm}
+            disabled={invalid || saving}
+          >
+            {saving ? "Saving..." : "Mark as paid"}
+          </button>
+        </>
+      }
+    >
+      <div className="input-group">
+        <label>Payment received on ({invoice?.invoiceNumber})</label>
+        <CalendarPicker
+          value={paidOn}
+          onChange={setPaidOn}
+          min={invoiceDay || undefined}
+          max={today}
+        />
+        <p style={{ margin: "8px 0 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+          Selected: {paidOn ? formatCalendarDate(paidOn) : "none"}
+        </p>
+      </div>
+    </Modal>,
+    document.body,
+  );
+}
+
 function QuickStatusBadge({ item, onStatusChange }) {
   const [open, setOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [pickingPaymentDate, setPickingPaymentDate] = useState(false);
   const dropdownRef = useRef(null);
 
   const status = item?.status || "pending";
@@ -143,9 +204,25 @@ function QuickStatusBadge({ item, onStatusChange }) {
     );
   }
 
+  const applyStatus = async (newStatus, paidAt) => {
+    setUpdating(true);
+    try {
+      await onStatusChange(item._id, newStatus, paidAt);
+    } catch (err) {
+      logger.error("Invoice status update failed", err);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleSelectStatus = async (newStatus) => {
     setOpen(false);
     if (newStatus === status) return;
+    // Paid needs the day the payment arrived, so ask for it first.
+    if (newStatus === "paid") {
+      setPickingPaymentDate(true);
+      return;
+    }
     // Cancelling deletes the bill on the server and releases its number.
     if (
       newStatus === "cancelled" &&
@@ -155,14 +232,7 @@ function QuickStatusBadge({ item, onStatusChange }) {
     ) {
       return;
     }
-    setUpdating(true);
-    try {
-      await onStatusChange(item._id, newStatus);
-    } catch (err) {
-      logger.error("Invoice status update failed", err);
-    } finally {
-      setUpdating(false);
-    }
+    await applyStatus(newStatus);
   };
 
   return (
@@ -245,6 +315,17 @@ function QuickStatusBadge({ item, onStatusChange }) {
             </button>
           ))}
         </div>
+      )}
+
+      {pickingPaymentDate && (
+        <PaymentDateModal
+          invoice={item}
+          onClose={() => setPickingPaymentDate(false)}
+          onConfirm={async (paidAt) => {
+            setPickingPaymentDate(false);
+            await applyStatus("paid", paidAt);
+          }}
+        />
       )}
     </div>
   );
@@ -421,6 +502,7 @@ export default function Invoices() {
         status: item.status,
         paymentType: item.paymentType || "credit",
         invoiceDate: toDateInputValue(item.invoiceDate),
+        paidAt: item.status === "paid" ? toDateInputValue(item.paidAt) : "",
         items: item.items.map((i) => ({
           _key: i._id || Math.random().toString(36).substring(2, 9),
           medicine: i.medicine?._id || i.medicine || "",
@@ -713,6 +795,9 @@ export default function Invoices() {
       status: form.status,
       paymentType: form.paymentType,
       invoiceDate: toInvoiceDatePayload(form.invoiceDate),
+      ...(form.status === "paid"
+        ? { paidAt: form.paidAt || getTodayDateInputValue() }
+        : {}),
       items: form.items.map((item) => ({
         medicine: item.medicine,
         medicineName: item.medicineName,
@@ -786,9 +871,12 @@ export default function Invoices() {
     }
   };
 
-  const handleQuickStatusUpdate = async (id, newStatus) => {
+  const handleQuickStatusUpdate = async (id, newStatus, paidAt) => {
     try {
-      const res = await invoicesApi.update(id, { status: newStatus });
+      const res = await invoicesApi.update(id, {
+        status: newStatus,
+        ...(newStatus === "paid" && paidAt ? { paidAt } : {}),
+      });
       toast.success(res.message || `Status updated to ${newStatus}`);
       fetchItems();
     } catch (err) {
@@ -1104,6 +1192,19 @@ export default function Invoices() {
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
+              {form.status === "paid" && (
+                <div className="input-group">
+                  <label>Payment Received On</label>
+                  <input
+                    type="date"
+                    name="paidAt"
+                    value={form.paidAt || getTodayDateInputValue()}
+                    min={form.invoiceDate || undefined}
+                    max={getTodayDateInputValue()}
+                    onChange={handleChange}
+                  />
+                </div>
+              )}
               {formIsPurchase ? (
                 <>
                   <div className="input-group">
